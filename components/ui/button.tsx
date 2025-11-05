@@ -26,7 +26,7 @@ const buttonVariants = cva(
         ghost: "bg-transparent text-slate-500 border-transparent border-0 hover:bg-slate-100",
         sidebar: 
         "bg-transparent text-slate-500 border-transparent border-0 hover:bg-slate-100 transition-none",
-        sidebarOutline: "bg-sky-500/15 text-sky-500 border-sky-300 hover:bg-sky-500/20 transition-none",
+        sidebarOutline: "bg-sky-500/15 text-sky-500 border-blue-800 hover:bg-sky-500/20 transition-none",
         destructive:
           "bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
         outline:
