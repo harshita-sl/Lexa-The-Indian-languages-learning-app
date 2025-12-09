@@ -19,7 +19,7 @@ export const SidebarItem = ({
     const pathname = usePathname();
     const active = pathname === href;
     return (
-        <Button variant={active ? "super":"superOutline"} className="justify-start h-[52px]" asChild>
+        <Button variant={active ? "sidebar":"sidebarOutline"} className="justify-start h-[52px]" asChild>
             <Link href={href}>
             <Image
                 src={iconSrc}
@@ -28,7 +28,7 @@ export const SidebarItem = ({
                 height={32}
                 width={32}
             />
-            {label};
+            {label}
             </Link>
         </Button>
     );
