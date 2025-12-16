@@ -5,3 +5,10 @@ export const courses = pgTable("courses", {
     title: text("title").notNull(),
     imageSrc: text("image_src").notNull(),
 }) 
+
+export const userProgress = pgTable("user_progress", {
+    id: serial("id").primaryKey(),
+    userId: serial("user_id").notNull(),
+    courseId: serial("course_id").notNull(),
+    progress: text("progress").notNull(),
+});
