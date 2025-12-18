@@ -9,6 +9,7 @@ import {
   UserButton,
 } from '@clerk/nextjs'
 import "./globals.css";
+import { Toaster } from "@/components/ui/sonner";
 
 const font = Nunito({
   subsets: ["latin"],
@@ -43,6 +44,7 @@ export default function RootLayout({
               <UserButton />
             </SignedIn>
           </header> */}
+          <Toaster />
         {children}
       </body>
     </html>
