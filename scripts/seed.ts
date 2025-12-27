@@ -54,12 +54,12 @@ const main = async () => {
         unitId: 1,
         order: 1,
       },
-      {
-        id: 2,
-        title: "Verbs",
-        unitId: 1,
-        order: 2,
-      },
+      // {
+      //   id: 2,
+      //   title: "Verbs",
+      //   unitId: 1,
+      //   order: 2,
+      // },
     ]);
     await db.insert(schema.challenges).values([
       {
@@ -69,13 +69,13 @@ const main = async () => {
         question: 'What is called "bed"? ',
         order: 1,
       },
-      {
-        id: 2,
-        lessonId: 2,
-        type: "ASSIST",
-        question: "How do you say 'to run' in Telugu?",
-        order: 2,
-      },
+      // {
+      //   id: 2,
+      //   lessonId: 2,
+      //   type: "ASSIST",
+      //   question: "How do you say 'to run' in Telugu?",
+      //   order: 2,
+      // },
     ]);
     await db.insert(schema.challengeOptions).values([
       {

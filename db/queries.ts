@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import { auth } from "@clerk/nextjs/server";
 import { eq } from 'drizzle-orm';
-import { courses, units, userProgress } from '@/db/schema';
+import { challengeProgress, courses, units, userProgress } from '@/db/schema';
 import db from "@/db/drizzle"
 
 export const getUserProgress = cache(async () => {
@@ -21,10 +21,12 @@ export const getUserProgress = cache(async () => {
     return data;
 });
 
-export const getunits = cache(async (courseId: number) => {
+export const getUnits = cache(async (courseId: number) => {
+    const { userId } = await auth();  
     const userProgress = await getUserProgress();
 
-    if(!userProgress?.activeCourseId){
+
+    if(!userId || !userProgress?.activeCourseId){
         return [];
     }
     const data = await db.query.units.findMany({
@@ -34,7 +36,9 @@ export const getunits = cache(async (courseId: number) => {
                 with: {
                     challenges: {
                         with: {
-                            challengeProgress: true,
+                            challengeProgress: {
+                                where: eq(challengeProgress.userId, userId),
+                            }
                         },
                     },   
                 },
@@ -46,8 +50,17 @@ export const getunits = cache(async (courseId: number) => {
             const allCompletedChallenges = lesson.challenges.every((challenge) => {
             return challenge.challengeProgress && challenge.challengeProgress.length > 0 && challenge.challengeProgress.every((progress) => progress.completed);
             });
+            return {
+                ...lesson,
+                completed: allCompletedChallenges,
+            };
         });
+        return {
+            ...unit,
+            lessons: lessonsWithCompletedStatus,
+        };
     });
+    return NormalizedData;
 });
 
 export const getCourses = cache(async () => {   
