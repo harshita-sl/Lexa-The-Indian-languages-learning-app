@@ -20,9 +20,7 @@ return (
       <div className="relative" style={{ width: 1400, height: 700 }}>
 
 
-      {/* <Image src="/meow.png" fill alt="Mascot" /> */}
-      <script type="module" src="https://unpkg.com/@splinetool/viewer@1.10.16/build/spline-viewer.js"></script>
-      <spline-viewer url="https://prod.spline.design/lynvnUvpEXErnE8z/scene.splinecode" style={{ width: "100%", height: "100%" }}></spline-viewer>
+      <Image src="/meow.png" fill alt="Mascot" />
       </div>
     </div>
       <div className="flex flex-col items-center gap-y-8">
