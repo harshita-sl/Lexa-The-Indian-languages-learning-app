@@ -20,9 +20,34 @@ return (
       <div className="relative" style={{ width: 1400, height: 700 }}>
 
 
-      {/* <Image src="/meow.png" fill alt="Mascot" /> */}
       <script type="module" src="https://unpkg.com/@splinetool/viewer@1.10.16/build/spline-viewer.js"></script>
       <spline-viewer url="https://prod.spline.design/lynvnUvpEXErnE8z/scene.splinecode" style={{ width: "100%", height: "100%" }}></spline-viewer>
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            (function () {
+              function hideSplineBadge() {
+                var viewer = document.querySelector("spline-viewer");
+                if (viewer && viewer.shadowRoot) {
+                  if (!viewer.shadowRoot.getElementById("hide-spline-badge")) {
+                    var style = document.createElement("style");
+                    style.id = "hide-spline-badge";
+                    style.textContent = "#logo { display: none !important; }";
+                    viewer.shadowRoot.appendChild(style);
+                  }
+                  return true;
+                }
+                return false;
+              }
+              if (!hideSplineBadge()) {
+                var interval = setInterval(function () {
+                  if (hideSplineBadge()) clearInterval(interval);
+                }, 200);
+              }
+            })();
+          `,
+        }}
+      />
       </div>
     </div>
       <div className="flex flex-col items-center gap-y-8">
