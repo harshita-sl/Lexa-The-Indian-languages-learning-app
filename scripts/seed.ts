@@ -1,11 +1,13 @@
 import "dotenv/config";
-import { neon } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-http";
-
+import db from "../db/drizzle";
 import * as schema from "../db/schema";
+import { PRACTICE_ITEMS, SPOKEN_CONTENT } from "./seed-content";
+import { getConceptById } from "../lib/ai/adaptive/knowledge-graph";
+import { createHash } from "crypto";
 
-const sql = neon(process.env.DATABASE_URL!);
-const db = drizzle(sql, { schema });
+// Concept level (1-5) → Elo beta
+const betaForConcept = (conceptId: string) =>
+  1000 + ((getConceptById(conceptId)?.level ?? 2) - 3) * 150;
 
 const main = async () => {
   try{
@@ -28,7 +30,7 @@ const main = async () => {
       {
         id: 2,
         title: "Hindi",
-        imageSrc: "/hin.svg"
+        imageSrc: "/hindi.svg"
       },
       {
         id: 3,
@@ -68,6 +70,9 @@ const main = async () => {
         type: "SELECT",
         question: 'What is called "bed"? ',
         order: 1,
+        conceptId: "telugu_vocab_family",
+        skill: "vocabulary",
+        itemDifficulty: betaForConcept("telugu_vocab_family"),
       },
       // {
       //   id: 2,
@@ -111,6 +116,57 @@ const main = async () => {
         audioSrc: "/suryudu.mp3",
       },
     ]);
+    // ── Adaptive-path content ──────────────────────────────────────────────
+    await db.delete(schema.practiceItems);
+    await db.delete(schema.spokenContent);
+
+    for (const item of PRACTICE_ITEMS) {
+      const contentHash = createHash("sha256")
+        .update(`${item.language}:${item.conceptId}:${item.payload.question}`)
+        .digest("hex")
+        .slice(0, 32);
+      await db
+        .insert(schema.practiceItems)
+        .values({
+          language: item.language,
+          conceptId: item.conceptId,
+          skill: item.skill,
+          type: item.type,
+          payload: item.payload,
+          difficultyB: betaForConcept(item.conceptId),
+          reviewStatus: "seeded",
+          source: "seed",
+          contentHash,
+        })
+        .onConflictDoNothing();
+    }
+
+    for (const s of SPOKEN_CONTENT) {
+      const contentHash = createHash("sha256")
+        .update(`${s.language}:${s.nativeText}`)
+        .digest("hex")
+        .slice(0, 32);
+      await db
+        .insert(schema.spokenContent)
+        .values({
+          language: s.language,
+          kind: s.kind,
+          nativeText: s.nativeText,
+          translit: s.translit,
+          gloss: s.gloss,
+          register: s.register,
+          region: s.region ?? null,
+          example: s.example ?? null,
+          conceptId: s.conceptId ?? null,
+          reviewStatus: "unreviewed",
+          contentHash,
+        })
+        .onConflictDoNothing();
+    }
+    console.log(
+      `Seeded ${PRACTICE_ITEMS.length} practice items, ${SPOKEN_CONTENT.length} spoken-content rows`
+    );
+
     console.log("Database seeded successfully.");
   } catch (error) {
     console.error( error);
