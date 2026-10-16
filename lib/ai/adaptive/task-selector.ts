@@ -177,7 +177,17 @@ export function selectTasks(input: SelectTasksInput): ScoredTask[] {
   }
 
   tasks.sort((a, b) => b.scores.total - a.scores.total);
-  const picked = tasks.slice(0, Math.max(0, count - (includeConversation ? 1 : 0)));
+  const slots = Math.max(0, count - (includeConversation ? 1 : 0));
+
+  // Guarantee due reviews a floor: up to half the slots are reserved for them
+  // so fading memories are never starved out by shiny new concepts.
+  const reviews = tasks.filter((t) => t.type === 'fsrs_review');
+  const others = tasks.filter((t) => t.type !== 'fsrs_review');
+  const reviewTake = Math.min(reviews.length, Math.ceil(slots / 2));
+  const picked = [
+    ...reviews.slice(0, reviewTake),
+    ...others.slice(0, slots - reviewTake),
+  ].sort((a, b) => b.scores.total - a.scores.total);
 
   // 4. Conversation challenge — always last slot when learner has any footing
   if (includeConversation && nodes.length > 0) {

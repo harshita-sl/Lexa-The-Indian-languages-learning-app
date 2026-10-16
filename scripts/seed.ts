@@ -167,10 +167,91 @@ const main = async () => {
       `Seeded ${PRACTICE_ITEMS.length} practice items, ${SPOKEN_CONTENT.length} spoken-content rows`
     );
 
+    // ── Demo learner profile — makes the adaptive surfaces visible on first
+    // run (mastery map, due reviews, skill bars, weak areas, daily plan).
+    const DEMO_USER = "guest_demo_user";
+    const now = new Date();
+    const daysAgo = (d: number) => new Date(now.getTime() - d * 86400000);
+
+    await db.delete(schema.learnerKnowledgeNodes);
+    await db.delete(schema.learnerSkillState);
+    await db.delete(schema.learnerItems);
+    await db.delete(schema.learnerSessions);
+    await db.delete(schema.recommendationLog);
+
+    const demoNodes = [
+      // overdue review — should surface at the top of Today's Plan
+      { conceptId: "telugu_vocab_greetings", conceptType: "vocabulary", stability: 8, difficulty: 4, retrievability: 0.7, lastReviewedAt: daysAgo(6), dueAt: daysAgo(1), reps: 4, lapses: 0, state: "review" },
+      { conceptId: "telugu_vocab_numbers_1_10", conceptType: "vocabulary", stability: 4, difficulty: 5, retrievability: 0.62, lastReviewedAt: daysAgo(5), dueAt: daysAgo(2), reps: 3, lapses: 1, state: "review" },
+      { conceptId: "telugu_script_vowels_short", conceptType: "script", stability: 1.2, difficulty: 6, retrievability: 0.55, lastReviewedAt: daysAgo(2), dueAt: daysAgo(0.5), reps: 2, lapses: 1, state: "learning" },
+      // healthy — not due yet
+      { conceptId: "telugu_pronouns_basic", conceptType: "honorific", stability: 3, difficulty: 5, retrievability: 0.85, lastReviewedAt: daysAgo(1), dueAt: new Date(now.getTime() + 86400000), reps: 2, lapses: 0, state: "learning" },
+      // mastered
+      { conceptId: "telugu_vocab_family", conceptType: "vocabulary", stability: 14, difficulty: 3, retrievability: 0.9, lastReviewedAt: daysAgo(8), dueAt: new Date(now.getTime() + 7 * 86400000), reps: 6, lapses: 0, state: "mastered" },
+    ];
+    for (const n of demoNodes) {
+      await db.insert(schema.learnerKnowledgeNodes).values({
+        userId: DEMO_USER,
+        courseId: 1,
+        ...n,
+      }).onConflictDoNothing();
+    }
+
+    const demoSkills = [
+      { skill: "vocabulary", elo: 1030, bktKnown: 0.72, attempts: 14, correct: 10 },
+      { skill: "script", elo: 990, bktKnown: 0.55, attempts: 8, correct: 5 },
+      { skill: "grammar", elo: 960, bktKnown: 0.48, attempts: 9, correct: 5 },
+      { skill: "conversation", elo: 1010, bktKnown: 0.6, attempts: 4, correct: 3 },
+      { skill: "listening", elo: 1000, bktKnown: 0.4, attempts: 0, correct: 0 },
+      { skill: "speaking", elo: 1000, bktKnown: 0.4, attempts: 0, correct: 0 },
+    ];
+    for (const s of demoSkills) {
+      await db.insert(schema.learnerSkillState).values({
+        userId: DEMO_USER,
+        courseId: 1,
+        ...s,
+      }).onConflictDoNothing();
+    }
+
+    // Sessions incl. recurring pragmatic errors → weak-area insight lights up
+    const demoSessions = [
+      { conceptId: "telugu_vocab_greetings", skill: "vocabulary", source: "lesson", userAnswer: "Namaskaram", isCorrect: true, latencyMs: 2400, errorClassification: "none", createdAt: daysAgo(6) },
+      { conceptId: "telugu_pronouns_basic", skill: "grammar", source: "lesson", userAnswer: "nuvvu", isCorrect: false, latencyMs: 5200, errorClassification: "pragmatic", explanation: "Used informal 'you' where honorific is expected (meeru)", createdAt: daysAgo(3) },
+      { conceptId: "telugu_pronouns_basic", skill: "grammar", source: "practice", userAnswer: "nuvvu", isCorrect: false, latencyMs: 6100, errorClassification: "pragmatic", explanation: "Used informal 'you' where honorific is expected (meeru)", createdAt: daysAgo(2) },
+      { conceptId: "telugu_script_vowels_short", skill: "script", source: "practice", userAnswer: "ఆ", isCorrect: false, latencyMs: 4300, errorClassification: "phonetic", explanation: "Confused short అ with long ఆ", createdAt: daysAgo(2) },
+      { conceptId: "telugu_vocab_numbers_1_10", skill: "vocabulary", source: "practice", userAnswer: "Seven", isCorrect: false, latencyMs: 3800, errorClassification: "none", createdAt: daysAgo(5) },
+      { conceptId: "telugu_vocab_family", skill: "vocabulary", source: "lesson", userAnswer: "Mother", isCorrect: true, latencyMs: 1800, errorClassification: "none", createdAt: daysAgo(8) },
+      { conceptId: "telugu_syntax_sov", skill: "grammar", source: "lesson", userAnswer: "నీళ్ళు నేను త్రాగుతాను", isCorrect: false, latencyMs: 9000, errorClassification: "syntax", explanation: "Word order: expected SOV (నేను నీళ్ళు త్రాగుతాను)", createdAt: daysAgo(1) },
+      { conceptId: "telugu_vocab_greetings", skill: "vocabulary", source: "chat", userAnswer: "Namaskaram Priya!", isCorrect: true, latencyMs: 12000, errorClassification: "none", createdAt: daysAgo(1) },
+    ];
+    for (const sRow of demoSessions) {
+      await db.insert(schema.learnerSessions).values({
+        userId: DEMO_USER,
+        courseId: 1,
+        challengeId: `demo_${sRow.conceptId}`,
+        hintsUsed: 0,
+        ...sRow,
+      });
+    }
+
+    // A couple of item-level memories (slang learned in chat)
+    const demoItems = [
+      { itemKey: "telugu_slang:చాలు", itemType: "slang", conceptId: "telugu_vocab_greetings", stability: 2, difficulty: 4, retrievability: 0.8, lastReviewedAt: daysAgo(1), dueAt: new Date(now.getTime() + 86400000), reps: 1, lapses: 0, state: "learning" },
+      { itemKey: "telugu_word:నీళ్ళు", itemType: "word", conceptId: "telugu_vocab_food", stability: 1, difficulty: 5, retrievability: 0.6, lastReviewedAt: daysAgo(2), dueAt: daysAgo(0.5), reps: 1, lapses: 1, state: "learning" },
+    ];
+    for (const it of demoItems) {
+      await db.insert(schema.learnerItems).values({
+        userId: DEMO_USER,
+        courseId: 1,
+        ...it,
+      }).onConflictDoNothing();
+    }
+    console.log("Seeded demo learner profile for", DEMO_USER);
+
     console.log("Database seeded successfully.");
   } catch (error) {
     console.error( error);
-    throw new Error("Seeding failed");
+    process.exit(1);
   }
 };
-main();
+main().then(() => process.exit(0));

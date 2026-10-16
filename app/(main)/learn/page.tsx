@@ -8,6 +8,7 @@ import { Unit } from "./unit";
 import { LearnAITutorButton } from "@/components/learn-ai-tutor-button";
 import { TodaysPlan } from "@/components/todays-plan";
 import { buildDailyPlan, drizzlePlanRepo, DailyPlan } from "@/lib/ai/adaptive/daily-plan";
+import { createMemoryStore, memoryPlanRepo } from "@/lib/ai/adaptive/memory-repo";
 
 interface LessonItem {
   id: number;
@@ -66,14 +67,23 @@ const LearnPage = async ({
 
   const lang = activeCourse.title; // "Telugu", "Hindi", or "Kannada"
 
-  // Adaptive daily plan — graceful no-op when DB/model is unavailable
+  // Adaptive daily plan — falls back to a cold-start frontier when the
+  // learner DB is unreachable (e.g. un-migrated production schema).
   let plan: DailyPlan | null = null;
   try {
     plan = await buildDailyPlan(userProgress.userId, activeCourse.id, drizzlePlanRepo());
-    if (plan.steps.length === 0) plan = null;
   } catch {
-    plan = null;
+    try {
+      plan = await buildDailyPlan(
+        userProgress.userId,
+        activeCourse.id,
+        memoryPlanRepo(createMemoryStore())
+      );
+    } catch {
+      plan = null;
+    }
   }
+  if (plan && plan.steps.length === 0) plan = null;
 
   // Dynamically generated curriculum tailored strictly to the selected language
   const defaultUnits: UnitItem[] = [
