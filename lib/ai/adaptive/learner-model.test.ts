@@ -75,6 +75,23 @@ describe('recordAttempt pipeline', () => {
     expect(store.items.has('u1:telugu_vocab_greetings:namaskaram')).toBe(true);
   });
 
+  it('persists pronunciationScore on the session evidence row', async () => {
+    const store = createMemoryStore(T0);
+    const repo = memoryLearnerRepo(store);
+    await recordAttempt(
+      baseAttempt({ pronunciationScore: 0.87, userAnswer: 'heard transcript' }),
+      repo
+    );
+    expect(store.sessions[0].acousticPhoneticScore).toBe(0.87);
+  });
+
+  it('omits pronunciation score cleanly for non-speech attempts', async () => {
+    const store = createMemoryStore(T0);
+    const repo = memoryLearnerRepo(store);
+    await recordAttempt(baseAttempt(), repo);
+    expect(store.sessions[0].acousticPhoneticScore).toBeUndefined();
+  });
+
   it('marks served recommendation completed', async () => {
     const store = createMemoryStore(T0);
     const repo = memoryLearnerRepo(store);

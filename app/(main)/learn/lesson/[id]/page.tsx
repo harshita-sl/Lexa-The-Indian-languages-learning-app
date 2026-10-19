@@ -60,6 +60,9 @@ function LessonContent() {
     }
   }, []);
 
+  const [lessonReasons, setLessonReasons] = useState<string[]>([]);
+  const [lessonMeta, setLessonMeta] = useState<{ style?: string; paceTier?: string }>({});
+
   const fetchLesson = useCallback(async () => {
     await fetchUserLevel();
     setLoading(true);
@@ -69,6 +72,48 @@ function LessonContent() {
       const targetDiff = searchParams.get('difficulty') || userLevel;
       const conceptId = searchParams.get('conceptId') || undefined;
 
+      // Adaptive path: concept-tagged lessons are composed per-learner
+      // (style → item types, pace → length + difficulty ramp).
+      if (conceptId) {
+        const res = await fetch(
+          `/api/ai/lesson?conceptId=${encodeURIComponent(conceptId)}` +
+            `&language=${encodeURIComponent(targetLang)}` +
+            `&level=${encodeURIComponent(userLevel)}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const items = (data.items ?? []) as Array<{
+            conceptId: string;
+            type: ChallengeData['type'];
+            payload: Record<string, unknown>;
+            difficultyB: number;
+          }>;
+          if (items.length > 0) {
+            setLessonReasons(data.reasons ?? []);
+            setLessonMeta({ style: data.style, paceTier: data.paceTier });
+            setLesson({
+              id: parseInt(lessonId) || 1,
+              title: `${targetLang} - ${targetTopic}`,
+              unitId: 1,
+              order: 1,
+              challenges: items.map((it) => ({
+                ...(it.payload as Omit<ChallengeData, 'type' | 'difficulty' | 'conceptId'>),
+                type: it.type,
+                difficulty: it.difficultyB,
+                conceptId: it.conceptId,
+              })),
+              currentChallengeIndex: 0,
+              hearts: 5,
+              points: 0,
+              xp: 0,
+            });
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
+      // Fixed path: no concept → legacy generator.
       const res = await fetch(`/api/ai/generate-challenge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -127,7 +172,11 @@ function LessonContent() {
   const progress = ((lesson.currentChallengeIndex + 1) / lesson.challenges.length) * 100;
   const isLastChallenge = lesson.currentChallengeIndex === lesson.challenges.length - 1;
 
-  const handleAnswer = (correct: boolean, selectedAnswer?: string) => {
+  const handleAnswer = (
+    correct: boolean,
+    selectedAnswer?: string,
+    pronunciationScore?: number
+  ) => {
     if (answerSubmitted) return;
 
     setAnswerSubmitted(true);
@@ -151,6 +200,7 @@ function LessonContent() {
           latencyMs,
           source: 'lesson',
           language: lang,
+          pronunciationScore,
         }),
       }).catch((e) => console.warn('attempt log failed:', e));
     }
@@ -231,6 +281,11 @@ function LessonContent() {
           </div>
 
           <div className="flex items-center gap-4">
+            {lessonMeta.style && (
+              <span className="hidden sm:inline-flex items-center px-2 py-1 rounded-full bg-sky-50 text-sky-700 text-xs font-bold capitalize">
+                {lessonMeta.style} · {lessonMeta.paceTier}
+              </span>
+            )}
             <div className="flex items-center gap-1 text-red-500 font-bold">
               <Heart className="w-5 h-5 fill-current" />
               <span>{lesson.hearts}</span>
@@ -249,14 +304,27 @@ function LessonContent() {
             <span>Challenge {lesson.currentChallengeIndex + 1} of {lesson.challenges.length}</span>
             <span className="capitalize text-sky-600 font-semibold">{currentChallenge.type}</span>
           </div>
+          {lessonReasons.length > 0 && lesson.currentChallengeIndex === 0 && (
+            <div className="mb-4 p-3 rounded-xl bg-sky-50 border border-sky-100">
+              <p className="text-xs font-bold text-sky-700 uppercase tracking-wide mb-1">
+                Why this lesson
+              </p>
+              {lessonReasons.map((r, i) => (
+                <p key={i} className="text-xs text-sky-800">
+                  • {r}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
 
         <Challenge
           key={lesson.currentChallengeIndex}
           {...currentChallenge}
+          language={searchParams.get('language') || 'Telugu'}
           onAnswer={handleAnswer}
           disabled={answerSubmitted}
-          type={currentChallenge.type as 'SELECT' | 'ASSIST' | 'TRANSLATE' | 'MATCH' | 'ORDER'}
+          type={currentChallenge.type}
         />
 
         {showExplanation && (

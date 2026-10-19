@@ -47,6 +47,8 @@ export interface AttemptInput {
   taskReason?: string;
   language?: string;
   targetRegister?: 'intimate' | 'informal' | 'formal' | 'honorific';
+  /** STT-based pronunciation similarity 0..1 (SPEAK challenges). */
+  pronunciationScore?: number;
   /** Simulated clock for tests/simulator; defaults to real time. */
   now?: Date;
 }
@@ -136,6 +138,7 @@ export interface LearnerRepo {
     hintsUsed: number;
     errorClassification: string;
     explanation?: string;
+    acousticPhoneticScore?: number;
   }): Promise<void>;
   completeRecommendation(userId: string, courseId: number, conceptId: string): Promise<void>;
   getSelfReportedLevel?(userId: string): Promise<string>;
@@ -271,6 +274,7 @@ export async function recordAttempt(
     hintsUsed: input.hintsUsed ?? 0,
     errorClassification: diagnosis?.dimension ?? 'none',
     explanation: diagnosis?.explanation,
+    acousticPhoneticScore: input.pronunciationScore,
   });
   await repo.completeRecommendation(input.userId, input.courseId, input.conceptId);
 

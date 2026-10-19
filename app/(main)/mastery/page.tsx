@@ -1,7 +1,9 @@
 import { StickyWrapper } from "@/components/sticky-wrapper";
 import { FeedWrapper } from "@/components/feed-wrapper";
 import { UserProgress } from "@/app/(main)/learn/user-progress";
-import { getUserProgress, getCourseById, getLearnerKnowledgeNodes, getLearnerSkillStates, getWeakAreas } from "@/db/queries";
+import { getUserProgress, getCourseById, getLearnerKnowledgeNodes, getLearnerSkillStates, getWeakAreas, getRecentLearnerSessions, getUserPreferences } from "@/db/queries";
+import { computeStyle } from "@/lib/ai/adaptive/style-inference";
+import { paceTier } from "@/lib/ai/adaptive/lesson-composer";
 import { LearnAITutorButton } from "@/components/learn-ai-tutor-button";
 import {
   getLanguageGraph,
@@ -59,6 +61,23 @@ export default async function MasteryPage() {
   const skillRows = await getLearnerSkillStates(activeCourse.id);
   const weakAreas = await getWeakAreas(40);
 
+  const [prefs, sessions] = await Promise.all([
+    getUserPreferences(),
+    getRecentLearnerSessions(25),
+  ]);
+  const styleProfile = computeStyle(
+    prefs?.learningStyle,
+    sessions.map((s) => ({
+      skill: s.skill,
+      isCorrect: s.isCorrect,
+      latencyMs: s.latencyMs,
+    }))
+  );
+  const rollingAcc = sessions.length
+    ? sessions.filter((s) => s.isCorrect).length / sessions.length
+    : 0.75;
+  const pace = paceTier(rollingAcc, sessions.length);
+
   const dueCount = snapshots.filter((s) => s.dueStatus === "due" || s.dueStatus === "overdue").length;
   const masteredCount = snapshots.filter((s) => s.node.state === "mastered").length;
   const avgRetention = snapshots.length
@@ -104,6 +123,32 @@ export default async function MasteryPage() {
             </Button>
           </Link>
         )}
+
+        <section className="mb-8">
+          <h2 className="font-bold text-neutral-800 text-lg mb-3 flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-violet-500" /> Your learning profile
+          </h2>
+          <div className="p-4 rounded-2xl border-2 border-neutral-200 bg-white">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-3 py-1.5 rounded-full bg-violet-50 border border-violet-200 text-violet-800 text-xs font-bold capitalize">
+                Style: {styleProfile.effective}
+              </span>
+              <span className="px-3 py-1.5 rounded-full bg-sky-50 border border-sky-200 text-sky-800 text-xs font-bold capitalize">
+                Pace: {pace}
+              </span>
+              <span className="px-3 py-1.5 rounded-full bg-neutral-50 border border-neutral-200 text-neutral-600 text-xs font-bold">
+                {Math.round(rollingAcc * 100)}% recent accuracy · {sessions.length} attempts
+              </span>
+            </div>
+            <p className="text-xs text-neutral-500 mt-3">
+              {styleProfile.inferred && styleProfile.inferred !== styleProfile.declared
+                ? `You chose "${styleProfile.declared}", but your results say you learn best via ${styleProfile.inferred} — lessons now lean that way.`
+                : styleProfile.evidence < 15
+                  ? `You chose "${styleProfile.declared}". After ~15 exercises we'll start auto-tuning this based on your results.`
+                  : `Matches your "${styleProfile.declared}" preference — lesson types are tuned to it.`}
+            </p>
+          </div>
+        </section>
 
         <section className="mb-8">
           <h2 className="font-bold text-neutral-800 text-lg mb-3 flex items-center gap-2">

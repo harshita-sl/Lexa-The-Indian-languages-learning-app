@@ -13,8 +13,8 @@ import {
   Lightbulb,
   MessageSquare,
 } from 'lucide-react';
-import { speak, stopSpeaking, isTTSSupported } from '@/lib/ai/speech/tts';
-import { createRecognizer, isSTTSupported, type Recognizer } from '@/lib/ai/speech/stt';
+import { stopSpeaking, isTTSSupported, speakWithProvider } from '@/lib/ai/speech/tts';
+import { createBestRecognizer, isSTTSupported, type Recognizer } from '@/lib/ai/speech/stt';
 
 interface SlangCard {
   term: string;
@@ -144,7 +144,7 @@ export function ChatCompanion({
             correction: data.correction,
           },
         ]);
-        if (speakerOn) speak(data.replyNative, language);
+        if (speakerOn) void speakWithProvider(data.replyNative, language);
       } else {
         setMessages((m) => [
           ...m,
@@ -167,7 +167,7 @@ export function ChatCompanion({
       setListening(false);
       return;
     }
-    const rec = createRecognizer(language, {
+    const rec = createBestRecognizer(language, {
       onResult: (t) => {
         setListening(false);
         send(t);
@@ -224,7 +224,7 @@ export function ChatCompanion({
               )}
               {m.role === 'assistant' && (
                 <button
-                  onClick={() => speak(m.content, language)}
+                  onClick={() => void speakWithProvider(m.content, language)}
                   className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-sky-600 hover:text-sky-700"
                 >
                   <Volume2 className="w-3.5 h-3.5" /> Listen

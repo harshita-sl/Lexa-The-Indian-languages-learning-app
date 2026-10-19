@@ -11,15 +11,22 @@ interface ChallengeOption {
   audioText?: string | null;
 }
 
+export type ChallengeTypeName =
+  | 'SELECT' | 'ASSIST' | 'TRANSLATE' | 'MATCH' | 'ORDER'
+  | 'SPEAK' | 'LISTEN' | 'CONVERSATION';
+
 export interface ChallengeProps {
   question: string;
-  type: 'SELECT' | 'ASSIST' | 'TRANSLATE' | 'MATCH' | 'ORDER';
+  type: ChallengeTypeName;
   options: ChallengeOption[];
   correctAnswer: string;
   explanation: string;
   hints: string[];
-  onAnswer: (correct: boolean, selectedAnswer: string) => void;
+  /** pronunciationScore is set for SPEAK/CONVERSATION (0..1 similarity). */
+  onAnswer: (correct: boolean, selectedAnswer: string, pronunciationScore?: number) => void;
   disabled?: boolean;
+  /** Target language for TTS/STT (e.g. 'Telugu'). */
+  language?: string;
 }
 
 export function ChallengeBase({

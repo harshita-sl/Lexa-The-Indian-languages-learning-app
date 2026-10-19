@@ -50,6 +50,7 @@ export async function POST(request: Request) {
         taskReason: body.taskReason,
         language: body.language,
         targetRegister: body.targetRegister,
+        pronunciationScore: body.pronunciationScore,
       },
       drizzleLearnerRepo()
     );

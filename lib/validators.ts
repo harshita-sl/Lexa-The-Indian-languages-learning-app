@@ -24,6 +24,7 @@ export const attemptSchema = z.object({
   courseId: z.number().int().positive().max(100).optional().default(1),
   latencyMs: z.number().int().min(0).max(600_000).optional().default(0),
   hintsUsed: z.number().int().min(0).max(20).optional().default(0),
+  pronunciationScore: z.number().min(0).max(1).optional(),
   source: z.enum(['lesson', 'practice', 'chat', 'placement']).default('lesson'),
   taskReason: z.string().max(500).optional(),
   language: z.string().max(40).optional(),
@@ -32,7 +33,9 @@ export const attemptSchema = z.object({
 export type AttemptBody = z.infer<typeof attemptSchema>;
 
 export const prefsSchema = z.object({
-  learningStyle: z.string().max(40).optional(),
+  learningStyle: z
+    .enum(['visual', 'audio', 'speaking', 'conversational', 'balanced'])
+    .optional(),
   difficulty: z.string().max(40).optional(),
   dailyGoalMinutes: z.number().int().min(3).max(120).optional(),
   preferredTopics: z.array(z.string().max(60)).max(20).optional(),

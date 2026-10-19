@@ -38,6 +38,7 @@ export default function OnboardingPage() {
   const [dailyGoal, setDailyGoal] = useState(15);
   const [register, setRegister] = useState<string>('colloquial');
   const [translit, setTranslit] = useState<string>('both');
+  const [learningStyle, setLearningStyle] = useState<string>('balanced');
 
   const finish = async () => {
     setSaving(true);
@@ -53,6 +54,7 @@ export default function OnboardingPage() {
           dailyGoalMinutes: dailyGoal,
           targetRegister: register,
           transliterationMode: translit,
+          learningStyle,
           onboardingCompleted: true,
         }),
       });
@@ -174,6 +176,28 @@ export default function OnboardingPage() {
                   />
                 ))}
               </div>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral-800 mb-3">How do you learn best?</p>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { id: 'visual', label: 'Reading & seeing', desc: 'Script, flashcards, word lists' },
+                  { id: 'audio', label: 'Listening', desc: 'Hear phrases, repeat after audio' },
+                  { id: 'speaking', label: 'Speaking', desc: 'Say it aloud, pronunciation drills' },
+                  { id: 'balanced', label: 'Mix it up', desc: 'A bit of everything' },
+                ].map((s) => (
+                  <OptionCard
+                    key={s.id}
+                    selected={learningStyle === s.id}
+                    onClick={() => setLearningStyle(s.id)}
+                    title={s.label}
+                    desc={s.desc}
+                  />
+                ))}
+              </div>
+              <p className="text-xs text-neutral-400 mt-2">
+                We&apos;ll auto-adjust this as we learn how you actually perform.
+              </p>
             </div>
             <div>
               <p className="font-semibold text-neutral-800 mb-3">Show text as</p>

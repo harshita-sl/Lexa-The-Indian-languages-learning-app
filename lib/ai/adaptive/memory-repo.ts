@@ -25,6 +25,10 @@ interface SessionRow {
   source: string;
   isCorrect: boolean;
   errorClassification: string;
+  latencyMs?: number;
+  hintsUsed?: number;
+  taskReason?: string;
+  acousticPhoneticScore?: number;
   createdAt: Date;
 }
 
