@@ -49,33 +49,152 @@ const SCENARIOS: { id: string; label: string }[] = [
   { id: 'office', label: 'Office banter' },
 ];
 
+/** Persona identity per scenario — mirrors lib/ai/chat/personas.ts for the chip. */
+const SCENARIO_META: Record<string, Record<string, { name: string; role: string }>> = {
+  telugu: {
+    auto: { name: 'Ravi', role: 'rickshaw driver' },
+    bargaining: { name: 'Lakshmamma', role: 'market vendor' },
+    food: { name: 'Srinu', role: 'tiffin-center waiter' },
+    friends: { name: 'Priya', role: 'your friend' },
+    inlaws: { name: 'Padmavathi ammamma', role: 'your partner\'s grandmother' },
+    office: { name: 'Karthik', role: 'your colleague' },
+    free: { name: 'Priya', role: 'a friendly local' },
+  },
+  kannada: {
+    auto: { name: 'Manju', role: 'rickshaw driver' },
+    bargaining: { name: 'Ratnamma', role: 'market vendor' },
+    food: { name: 'Raghu', role: 'darshini waiter' },
+    friends: { name: 'Lakshmi', role: 'your friend' },
+    inlaws: { name: 'Sharada ajji', role: 'your partner\'s grandmother' },
+    office: { name: 'Arun', role: 'your colleague' },
+    free: { name: 'Lakshmi', role: 'a friendly local' },
+  },
+  hindi: {
+    auto: { name: 'Raju', role: 'rickshaw driver' },
+    free: { name: 'Raj', role: 'a friendly local' },
+  },
+};
+
+function personaFor(langKey: string, scenario: string) {
+  const table = SCENARIO_META[langKey] ?? SCENARIO_META.hindi;
+  return table[scenario] ?? table.free;
+}
+
+/** In-character opener per scenario — the first line the persona speaks. */
+const OPENERS: Record<string, Record<string, ChatMsg>> = {
+  telugu: {
+    auto: {
+      role: 'assistant',
+      content: 'ఏయ్ సార్! ఎక్కడికి వెళ్తారు? చెప్పండి, నూట యాభైకి వదిలిపెడతా.',
+      english: 'Hey sir! Where to? Tell me, I\'ll drop you for ₹150.',
+      translit: 'Ey saar! Ekkadiki veltaaru? Cheppandi, noota yabhaiki vadilipetta.',
+    },
+    bargaining: {
+      role: 'assistant',
+      content: 'ఏమి కావాలమ్మా? ఈరోజు కూరగాయలు సూపర్ ఫ్రెష్!',
+      english: 'What do you need, dear? The vegetables are super fresh today!',
+      translit: 'Emi kaavaalamma? Eeroju kooragaayalu super fresh!',
+    },
+    food: {
+      role: 'assistant',
+      content: 'సార్ ఏమి కావాలి? ఇడ్లీ, దోసె, పూరీ — అన్ని రెడీ.',
+      english: 'Sir, what would you like? Idli, dosa, puri — all ready.',
+      translit: 'Saar emi kaavaali? Idli, dose, poori — anni ready.',
+    },
+    friends: {
+      role: 'assistant',
+      content: 'ఏయ్ ఏమిటి! చాలా రోజులైంది చూసి. ఏం జరుగుతోంది మీ అక్కడ?',
+      english: 'Hey! Long time no see. What\'s up on your end?',
+      translit: 'Ey emiti! Chaala roojulaindi choosi. Em jarugutondi mee akkada?',
+    },
+    inlaws: {
+      role: 'assistant',
+      content: 'రండి అమ్మా రండి! ఎలా ఉన్నారు? ప్రయాణం బాగుందా?',
+      english: 'Come in dear! How are you? Was your journey comfortable?',
+      translit: 'Randi amma randi! Ela unnaaru? Prayaanam baagundaa?',
+    },
+    office: {
+      role: 'assistant',
+      content: 'ఏమిటి బ్రో, మీటింగ్ అయిపోయిందా? ఎలా అయింది?',
+      english: 'Hey bro, done with the meeting? How did it go?',
+      translit: 'Emiti bro, meeting ayipoyindaa? Ela ayyindi?',
+    },
+    free: {
+      role: 'assistant',
+      content: 'నమస్కారం! నేను ప్రియ. ఏమిటి విషయం?',
+      english: "Hello! I'm Priya. What's up?",
+      translit: 'Namaskaaram! Nenu Priya. Emiti vishayam?',
+    },
+  },
+  kannada: {
+    auto: {
+      role: 'assistant',
+      content: 'ಏನ್ಸಾರ್! ಎಲ್ಲಿಗೆ ಹೋಗ್ಬೇಕು? ಹೇಳಿ, ನೂರಾ ಐವತ್ತಕ್ಕೆ ಬಿಡ್ತೀನಿ.',
+      english: 'Hey sir! Where to? Tell me, I\'ll drop you for ₹150.',
+      translit: 'Ensaar! Ellige hogbeku? Heli, noora aivattakke bidteeni.',
+    },
+    bargaining: {
+      role: 'assistant',
+      content: 'ಏನ್ ಬೇಕಮ್ಮಾ? ಇವತ್ತು ತರಕಾರಿ ಎಲ್ಲಾ ಸೂಪರ್ ಫ್ರೆಶ್!',
+      english: 'What do you need, dear? All vegetables are super fresh today!',
+      translit: 'En bekamma? Ivattu tarakaari ella super fresh!',
+    },
+    food: {
+      role: 'assistant',
+      content: 'ಸಾರ್ ಏನ್ ಬೇಕು? ಇಡ್ಲಿ, ದೋಸೆ, ಪೂರಿ — ಎಲ್ಲಾ ರೆಡಿ.',
+      english: 'Sir, what would you like? Idli, dosa, puri — all ready.',
+      translit: 'Saar en beku? Idli, dose, poori — ella ready.',
+    },
+    friends: {
+      role: 'assistant',
+      content: 'ಏಯ್ ಏನ್ಮಚ್ಚಾ! ತುಂಬಾ ದಿನ ಆಯ್ತು. ಏನ್ ಸಮಾಚಾರ?',
+      english: 'Hey dude! It\'s been ages. What\'s the news?',
+      translit: 'Ey enmachcha! Tumba dina aaytu. En samachaara?',
+    },
+    inlaws: {
+      role: 'assistant',
+      content: 'ಬನ್ನಿ ಅಮ್ಮ ಬನ್ನಿ! ಹೇಗಿದ್ದೀರಿ? ಪ್ರಯಾಣ ಚೆನ್ನಾಗಿತ್ತಾ?',
+      english: 'Come in dear! How are you? Was your journey comfortable?',
+      translit: 'Banni amma banni! Hegiddeeri? Prayaana chennaagittaa?',
+    },
+    office: {
+      role: 'assistant',
+      content: 'ಏನ್ಸರ್, ಮೀಟಿಂಗ್ ಮುಗೀತಾ? ಹೇಗಾಯ್ತು?',
+      english: 'Hey, done with the meeting? How did it go?',
+      translit: 'Ensar, meeting mugeetaa? Hegaaytu?',
+    },
+    free: {
+      role: 'assistant',
+      content: 'ನಮಸ್ಕಾರ! ನಾನು ಲಕ್ಷ್ಮಿ. ಏನು ಸಮಾಚಾರ?',
+      english: "Hello! I'm Lakshmi. What's up?",
+      translit: 'Namaskaara! Naanu Lakshmi. Enu samachaara?',
+    },
+  },
+  hindi: {
+    free: {
+      role: 'assistant',
+      content: 'नमस्ते! मैं राज हूँ। क्या चल रहा है?',
+      english: "Hi! I'm Raj. What's going on?",
+      translit: 'Namaste! Main Raj hoon. Kya chal raha hai?',
+    },
+  },
+};
+
+function openerFor(langKey: string, scenario: string): ChatMsg {
+  const table = OPENERS[langKey] ?? OPENERS.hindi;
+  return table[scenario] ?? table.free ?? {
+    role: 'assistant',
+    content: 'Hello! Ready to practice?',
+    english: '',
+  };
+}
+
 const REGISTER_STYLE: Record<SlangCard['register'], string> = {
   casual: 'bg-sky-50 text-sky-700 border-sky-200',
   very_informal: 'bg-amber-50 text-amber-700 border-amber-200',
   rude: 'bg-red-50 text-red-700 border-red-200',
   regional: 'bg-purple-50 text-purple-700 border-purple-200',
   formal: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-};
-
-const OPENERS: Record<string, ChatMsg> = {
-  telugu: {
-    role: 'assistant',
-    content: 'నమస్కారం! నేను ప్రియ. ఏమిటి విషయం?',
-    english: "Hello! I'm Priya. What's up?",
-    translit: 'Namaskaaram! Nenu Priya. Emiti vishayam?',
-  },
-  kannada: {
-    role: 'assistant',
-    content: 'ನಮಸ್ಕಾರ! ನಾನು ಲಕ್ಷ್ಮಿ. ಏನು ಸಮಾಚಾರ?',
-    english: "Hello! I'm Lakshmi. What's up?",
-    translit: 'Namaskaara! Naanu Lakshmi. Enu samachaara?',
-  },
-  hindi: {
-    role: 'assistant',
-    content: 'नमस्ते! मैं राज हूँ। क्या चल रहा है?',
-    english: "Hi! I'm Raj. What's going on?",
-    translit: 'Namaste! Main Raj hoon. Kya chal raha hai?',
-  },
 };
 
 export function ChatCompanion({
@@ -88,16 +207,11 @@ export function ChatCompanion({
   userLevel: 'beginner' | 'intermediate' | 'advanced';
 }) {
   const langKey = language.toLowerCase();
-  const [messages, setMessages] = useState<ChatMsg[]>([
-    OPENERS[langKey] ?? {
-      role: 'assistant',
-      content: 'Hello! Ready to practice?',
-      english: '',
-    },
-  ]);
-  const [input, setInput] = useState('');
   const [scenario, setScenario] = useState('free');
+  const [messages, setMessages] = useState<ChatMsg[]>([openerFor(langKey, 'free')]);
+  const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [offlineMode, setOfflineMode] = useState(false);
   const [speakerOn, setSpeakerOn] = useState(isTTSSupported());
   const [showTranslit, setShowTranslit] = useState(true);
   const [listening, setListening] = useState(false);
@@ -110,6 +224,16 @@ export function ChatCompanion({
   }, [messages]);
 
   useEffect(() => () => stopSpeaking(), []);
+
+  const persona = personaFor(langKey, scenario);
+
+  const pickScenario = (id: string) => {
+    if (id === scenario) return;
+    stopSpeaking();
+    setOfflineMode(false);
+    setScenario(id);
+    setMessages([openerFor(langKey, id)]);
+  };
 
   const send = async (text: string) => {
     const msg = text.trim();
@@ -132,6 +256,7 @@ export function ChatCompanion({
         }),
       });
       const data = await res.json();
+      setOfflineMode(Boolean(data.offline));
       if (data.replyNative) {
         setMessages((m) => [
           ...m,
@@ -188,7 +313,7 @@ export function ChatCompanion({
         {SCENARIOS.map((s) => (
           <button
             key={s.id}
-            onClick={() => setScenario(s.id)}
+            onClick={() => pickScenario(s.id)}
             className={cn(
               'px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-colors',
               scenario === s.id
@@ -199,6 +324,19 @@ export function ChatCompanion({
             {s.label}
           </button>
         ))}
+      </div>
+
+      {/* Persona + mode chips */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-xs font-semibold text-indigo-700">
+          <MessageSquare className="w-3.5 h-3.5" />
+          Talking to {persona.name} · {persona.role}
+        </span>
+        {offlineMode && (
+          <span className="inline-flex items-center px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-700">
+            Scripted mode — add an AI key for full chat
+          </span>
+        )}
       </div>
 
       {/* Messages */}

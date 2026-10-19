@@ -136,6 +136,7 @@ export async function composeLesson(
   );
   const items: ComposedItem[] = [];
   const usedBankIds = new Set<number>();
+  const usedQuestions = new Set<string>();
   const reasons: string[] = [
     `Style: ${style}${declared && declared !== style ? ` (inferred over declared "${declared}")` : ''}`,
     `Pace: ${tier} — ${Math.round(acc * 100)}% over last ${attempts.length} attempts`,
@@ -176,6 +177,8 @@ export async function composeLesson(
 
     if (row) {
       usedBankIds.add(row.id);
+      const q = (row.payload as { question?: string }).question;
+      if (q) usedQuestions.add(q);
       items.push({
         conceptId,
         type: (row.type as ChallengeType) ?? 'SELECT',
@@ -198,6 +201,9 @@ export async function composeLesson(
         conceptId,
         context: `lesson:${conceptId}:slot${i}`,
       });
+      // Skip if the generator echoed a question already in this lesson.
+      if (usedQuestions.has(gen.question)) continue;
+      usedQuestions.add(gen.question);
       items.push({
         conceptId,
         type: gen.type ?? wantType,

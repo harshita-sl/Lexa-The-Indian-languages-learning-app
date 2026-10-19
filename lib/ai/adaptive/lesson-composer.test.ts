@@ -29,6 +29,7 @@ function bankRow(id: number, type: string, beta = 950): BankItemRow {
 }
 
 function repo(over: Partial<ComposerRepo> = {}): ComposerRepo {
+  let genCount = 0;
   return {
     getRecentAttempts: async () => [],
     getDeclaredStyle: async () => 'balanced',
@@ -43,7 +44,7 @@ function repo(over: Partial<ComposerRepo> = {}): ComposerRepo {
       bankRow(6, 'SELECT', 1100),
     ],
     generateItem: async (input): Promise<GeneratedChallenge> => ({
-      question: 'generated',
+      question: `generated-${genCount++}`,
       type: input.challengeType,
       options: [{ text: 'x', correct: true }],
       correctAnswer: 'x',

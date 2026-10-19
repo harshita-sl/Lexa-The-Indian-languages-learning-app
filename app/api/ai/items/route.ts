@@ -52,9 +52,12 @@ export async function GET(request: Request) {
       .catch(() => []);
 
     if (bank.length > 0) {
-      const best = bank.reduce((a, b) =>
-        Math.abs(b.difficultyB - targetBeta) < Math.abs(a.difficultyB - targetBeta) ? b : a
+      // Rotate among the 3 closest difficulty matches — revisits see variety
+      // instead of the same best-fit item every time.
+      const ranked = [...bank].sort(
+        (a, b) => Math.abs(a.difficultyB - targetBeta) - Math.abs(b.difficultyB - targetBeta)
       );
+      const best = ranked[Math.floor(Math.random() * Math.min(3, ranked.length))];
       return NextResponse.json({
         source: 'bank',
         reviewStatus: best.reviewStatus,
