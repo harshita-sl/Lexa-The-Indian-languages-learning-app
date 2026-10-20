@@ -26,15 +26,15 @@ function rateLimited(userId: string): boolean {
 
 const replySchema = z.object({
   reply_native: z.string(),
-  reply_english: z.string().optional(),
+  reply_english: z.string().nullish(),
   slang: z
     .array(
       z.object({
         term: z.string(),
-        translit: z.string().optional(),
+        translit: z.string().nullish(),
         gloss: z.string(),
         register: z.enum(['casual', 'very_informal', 'rude', 'regional', 'formal']).default('casual'),
-        region: z.string().optional(),
+        region: z.string().nullish(),
       })
     )
     .default([]),
@@ -47,6 +47,14 @@ const replySchema = z.object({
     .nullable()
     .default(null),
 });
+
+/** LLMs often wrap JSON in ```json fences — strip before parse. */
+function parseReplyJson(raw: string): unknown {
+  const cleaned = raw.replace(/```(?:json)?/gi, '').trim();
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  return JSON.parse(start >= 0 ? cleaned.slice(start, end + 1) : cleaned);
+}
 
 const SCENARIOS: Record<string, string> = {
   auto: 'haggling with an autorickshaw driver',
@@ -121,15 +129,17 @@ export async function POST(request: Request) {
 
     let reply: z.infer<typeof replySchema>;
     let offline = false;
+    let raw = '';
     try {
-      const raw = await chatCompletion(
+      raw = await chatCompletion(
         buildSystemPrompt(language, userLevel, scenario, ranked),
         [...history.slice(-10), { role: 'user' as const, content: message }],
         { temperature: 0.7, maxTokens: 600, responseFormat: 'json' }
       );
-      reply = replySchema.parse(JSON.parse(raw));
+      reply = replySchema.parse(parseReplyJson(raw));
     } catch (e) {
       console.warn('Companion LLM failed, scripted reply:', e);
+      if (process.env.LLM_DEBUG) console.warn('raw reply:', raw);
       offline = true;
       // Progressive scripted scene — index by how many assistant turns so far.
       const assistantTurns = history.filter((m) => m.role === 'assistant').length;

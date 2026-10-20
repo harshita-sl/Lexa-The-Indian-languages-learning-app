@@ -41,7 +41,12 @@ export async function generateChallenge(input: ChallengeInput): Promise<Generate
       responseFormat: 'json',
     });
 
-    const challenge: GeneratedChallenge = JSON.parse(response);
+    const cleaned = response.replace(/```(?:json)?/gi, '').trim();
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+    const challenge: GeneratedChallenge = JSON.parse(
+      start >= 0 ? cleaned.slice(start, end + 1) : cleaned
+    );
     if (input.conceptId) challenge.conceptId = input.conceptId;
     await setCachedContent(
       'challenge',
