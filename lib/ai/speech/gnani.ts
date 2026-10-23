@@ -20,6 +20,10 @@
 const TIMEOUT_MS = 15000;
 const BASE_DEFAULT = 'https://api.vachana.ai';
 
+// api.vachana.ai sits behind Cloudflare bot protection that resets Node's
+// default undici TLS fingerprint (ECONNRESET); a browser/curl UA passes.
+const UA = 'Mozilla/5.0 (X11; Linux x86_64) LexaSpeech/1.0';
+
 const LANG_MAP: Record<string, string> = {
   telugu: 'te-IN',
   kannada: 'kn-IN',
@@ -54,6 +58,7 @@ export async function gnaniTTS(text: string, language: string): Promise<TTSResul
     headers: {
       'Content-Type': 'application/json',
       'X-API-Key-ID': process.env.GNANI_API_KEY!,
+      'User-Agent': UA,
     },
     body: JSON.stringify({
       text,
@@ -94,7 +99,7 @@ export async function gnaniSTT(
 
   const res = await fetch(`${base()}/stt/v3`, {
     method: 'POST',
-    headers: { 'X-API-Key-ID': process.env.GNANI_API_KEY! },
+    headers: { 'X-API-Key-ID': process.env.GNANI_API_KEY!, 'User-Agent': UA },
     body: form,
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
