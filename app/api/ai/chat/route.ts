@@ -5,7 +5,7 @@ import { chatCompletion } from '@/lib/ai/llm';
 import { recordAttempt, drizzleLearnerRepo } from '@/lib/ai/adaptive/learner-model';
 import db from '@/db/drizzle';
 import { spokenContent, conversations } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { and, desc, eq, gt } from 'drizzle-orm';
 import { indicToRoman } from '@/lib/ai/indic/transliteration';
 import { scenarioPersona } from '@/lib/ai/chat/personas';
 import { offlineReply } from '@/lib/ai/chat/offline-dialogues';
@@ -203,19 +203,45 @@ export async function POST(request: Request) {
     // Transliteration for UI toggle
     const translit = transliterateToRomanSafe(reply.reply_native, language);
 
-    // Persist conversation turn (best effort)
+    // Persist conversation turn (best effort). A continuous scene — same
+    // user + language + scenario within SESSION_WINDOW — updates one row so
+    // review history reads as coherent conversations, not turn snapshots.
+    const SESSION_WINDOW_MS = 30 * 60 * 1000;
     try {
-      await db.insert(conversations).values({
-        userId: effectiveUserId,
-        language,
-        messages: [
-          ...history,
-          { role: 'user', content: message },
-          { role: 'assistant', content: reply.reply_native },
-        ],
-        context: scenario,
+      const assistantTurn = {
+        role: 'assistant',
+        content: reply.reply_native,
+        ...(reply.reply_english ? { english: reply.reply_english } : {}),
+        ...(reply.slang.length ? { slang: reply.slang } : {}),
+        ...(offline ? { offline: true } : {}),
+      };
+      const userTurn = { role: 'user', content: message };
+      const recent = await db.query.conversations.findFirst({
+        where: and(
+          eq(conversations.userId, effectiveUserId),
+          eq(conversations.language, language),
+          eq(conversations.context, scenario),
+          gt(conversations.updatedAt, new Date(Date.now() - SESSION_WINDOW_MS))
+        ),
+        orderBy: [desc(conversations.updatedAt)],
       });
-    } catch {}
+      if (recent) {
+        const msgs = (recent.messages as unknown[]) ?? [];
+        await db
+          .update(conversations)
+          .set({ messages: [...msgs, userTurn, assistantTurn], updatedAt: new Date() })
+          .where(eq(conversations.id, recent.id));
+      } else {
+        await db.insert(conversations).values({
+          userId: effectiveUserId,
+          language,
+          messages: [userTurn, assistantTurn],
+          context: scenario,
+        });
+      }
+    } catch (e) {
+      console.warn('conversation persist failed:', e);
+    }
 
     return NextResponse.json({
       replyNative: reply.reply_native,

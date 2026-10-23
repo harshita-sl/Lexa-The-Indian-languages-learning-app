@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { gnaniTTS, gnaniConfigured } from '@/lib/ai/speech/gnani';
+import { getCachedAudio, setCachedAudio } from '@/lib/ai/speech/tts-cache';
 
 const bodySchema = z.object({
   text: z.string().min(1).max(500),
@@ -42,11 +43,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
 
-    const { audio, contentType } = await gnaniTTS(parsed.data.text, parsed.data.language);
+    const { text, language } = parsed.data;
+
+    const cached = await getCachedAudio(text, language);
+    if (cached) {
+      return new Response(new Uint8Array(cached.audio), {
+        headers: {
+          'Content-Type': cached.contentType,
+          'Cache-Control': 'private, max-age=86400',
+          'X-TTS-Cache': 'hit',
+        },
+      });
+    }
+
+    const { audio, contentType } = await gnaniTTS(text, language);
+    void setCachedAudio(text, language, audio);
     return new Response(audio, {
       headers: {
         'Content-Type': contentType,
-        'Cache-Control': 'private, max-age=3600',
+        'Cache-Control': 'private, max-age=86400',
+        'X-TTS-Cache': 'miss',
       },
     });
   } catch (error) {

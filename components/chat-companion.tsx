@@ -12,6 +12,8 @@ import {
   Loader2,
   Lightbulb,
   MessageSquare,
+  History,
+  ArrowLeft,
 } from 'lucide-react';
 import { stopSpeaking, isTTSSupported, speakWithProvider } from '@/lib/ai/speech/tts';
 import { createBestRecognizer, isSTTSupported, type Recognizer } from '@/lib/ai/speech/stt';
@@ -212,6 +214,11 @@ export function ChatCompanion({
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [offlineMode, setOfflineMode] = useState(false);
+  const [historyItems, setHistoryItems] = useState<
+    { id: number; scenario: string; updatedAt: string; turns: number; preview: string; previewEnglish: string }[] | null
+  >(null);
+  const [historyDetail, setHistoryDetail] = useState<{ id: number; messages: ChatMsg[] } | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [speakerOn, setSpeakerOn] = useState(isTTSSupported());
   const [showTranslit, setShowTranslit] = useState(true);
   const [listening, setListening] = useState(false);
@@ -231,9 +238,107 @@ export function ChatCompanion({
     if (id === scenario) return;
     stopSpeaking();
     setOfflineMode(false);
+    setHistoryOpen(false);
+    setHistoryDetail(null);
     setScenario(id);
     setMessages([openerFor(langKey, id)]);
   };
+
+  const openHistory = async () => {
+    setHistoryOpen(true);
+    setHistoryDetail(null);
+    setHistoryItems(null);
+    try {
+      const res = await fetch(`/api/ai/chat/history?language=${language}&limit=20`);
+      const data = await res.json();
+      setHistoryItems(data.items ?? []);
+    } catch {
+      setHistoryItems([]);
+    }
+  };
+
+  const openHistoryDetail = async (id: number) => {
+    try {
+      const res = await fetch(`/api/ai/chat/history?id=${id}`);
+      const data = await res.json();
+      if (data.messages) setHistoryDetail({ id, messages: data.messages });
+    } catch {}
+  };
+
+  /** Shared bubble renderer — used by both live chat and read-only history. */
+  const bubble = (m: ChatMsg, i: number) => (
+    <div key={i} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
+      <div
+        className={cn(
+          'max-w-[85%] rounded-2xl px-4 py-3 border-2',
+          m.role === 'user'
+            ? 'bg-sky-500 text-white border-sky-500'
+            : 'bg-white border-neutral-200'
+        )}
+      >
+        <p className={cn('font-semibold', m.role === 'user' ? 'text-white' : 'text-neutral-800')}>
+          {m.content}
+        </p>
+        {m.role === 'assistant' && showTranslit && m.translit && (
+          <p className="text-xs text-neutral-400 mt-0.5 italic">{m.translit}</p>
+        )}
+        {m.role === 'assistant' && m.english && (
+          <p className="text-xs text-neutral-500 mt-1">{m.english}</p>
+        )}
+        {m.role === 'assistant' && (
+          <button
+            onClick={() => void speakWithProvider(m.content, language)}
+            className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-sky-600 hover:text-sky-700"
+          >
+            <Volume2 className="w-3.5 h-3.5" /> Listen
+          </button>
+        )}
+
+        {m.slang && m.slang.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {m.slang.map((s, j) => (
+              <div
+                key={j}
+                className="text-xs rounded-xl border border-amber-200 bg-amber-50 p-2.5"
+              >
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-neutral-800">
+                    {s.term}
+                    {s.translit ? ` (${s.translit})` : ''}
+                  </span>
+                  <span
+                    className={cn(
+                      'px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase',
+                      REGISTER_STYLE[s.register] ?? REGISTER_STYLE.casual
+                    )}
+                  >
+                    {s.register.replace(/_/g, ' ')}
+                    {s.region ? ` · ${s.region}` : ''}
+                  </span>
+                </div>
+                <p className="text-neutral-600 mt-1">{s.gloss}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {m.correction && (
+          <div className="mt-3 text-xs rounded-xl border border-rose-200 bg-rose-50 p-2.5">
+            <p className="font-bold text-rose-700 flex items-center gap-1">
+              <Lightbulb className="w-3.5 h-3.5" /> Gentle fix
+            </p>
+            <p className="text-neutral-700 mt-1">
+              You said: <span className="line-through">{m.correction.user_said}</span>
+            </p>
+            <p className="text-neutral-700">
+              Better: <span className="font-bold">{m.correction.better}</span>
+            </p>
+            <p className="text-neutral-500 mt-0.5">{m.correction.why}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   const send = async (text: string) => {
     const msg = text.trim();
@@ -339,90 +444,63 @@ export function ChatCompanion({
         )}
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto space-y-4 pr-1 mb-4">
-        {messages.map((m, i) => (
-          <div key={i} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
-            <div
-              className={cn(
-                'max-w-[85%] rounded-2xl px-4 py-3 border-2',
-                m.role === 'user'
-                  ? 'bg-sky-500 text-white border-sky-500'
-                  : 'bg-white border-neutral-200'
-              )}
-            >
-              <p className={cn('font-semibold', m.role === 'user' ? 'text-white' : 'text-neutral-800')}>
-                {m.content}
-              </p>
-              {m.role === 'assistant' && showTranslit && m.translit && (
-                <p className="text-xs text-neutral-400 mt-0.5 italic">{m.translit}</p>
-              )}
-              {m.role === 'assistant' && m.english && (
-                <p className="text-xs text-neutral-500 mt-1">{m.english}</p>
-              )}
-              {m.role === 'assistant' && (
-                <button
-                  onClick={() => void speakWithProvider(m.content, language)}
-                  className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-sky-600 hover:text-sky-700"
-                >
-                  <Volume2 className="w-3.5 h-3.5" /> Listen
-                </button>
-              )}
-
-              {m.slang && m.slang.length > 0 && (
-                <div className="mt-3 space-y-2">
-                  {m.slang.map((s, j) => (
-                    <div
-                      key={j}
-                      className="text-xs rounded-xl border border-amber-200 bg-amber-50 p-2.5"
-                    >
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-neutral-800">
-                          {s.term}
-                          {s.translit ? ` (${s.translit})` : ''}
-                        </span>
-                        <span
-                          className={cn(
-                            'px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase',
-                            REGISTER_STYLE[s.register] ?? REGISTER_STYLE.casual
-                          )}
-                        >
-                          {s.register.replace(/_/g, ' ')}
-                          {s.region ? ` · ${s.region}` : ''}
-                        </span>
-                      </div>
-                      <p className="text-neutral-600 mt-1">{s.gloss}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {m.correction && (
-                <div className="mt-3 text-xs rounded-xl border border-rose-200 bg-rose-50 p-2.5">
-                  <p className="font-bold text-rose-700 flex items-center gap-1">
-                    <Lightbulb className="w-3.5 h-3.5" /> Gentle fix
-                  </p>
-                  <p className="text-neutral-700 mt-1">
-                    You said: <span className="line-through">{m.correction.user_said}</span>
-                  </p>
-                  <p className="text-neutral-700">
-                    Better: <span className="font-bold">{m.correction.better}</span>
-                  </p>
-                  <p className="text-neutral-500 mt-0.5">{m.correction.why}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-        {sending && (
-          <div className="flex justify-start">
-            <div className="bg-white border-2 border-neutral-200 rounded-2xl px-4 py-3">
+      {/* Messages / History */}
+      {historyOpen ? (
+        <div className="flex-1 overflow-y-auto space-y-3 pr-1 mb-4">
+          {historyDetail ? (
+            <>
+              <button
+                onClick={() => setHistoryDetail(null)}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> Back to conversations
+              </button>
+              {historyDetail.messages.map(bubble)}
+            </>
+          ) : historyItems === null ? (
+            <div className="flex justify-center py-8">
               <Loader2 className="w-5 h-5 animate-spin text-neutral-400" />
             </div>
-          </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
+          ) : historyItems.length === 0 ? (
+            <div className="rounded-2xl border-2 border-dashed border-neutral-200 p-6 text-center text-sm text-neutral-500">
+              No past conversations yet — chat and they will show up here for review.
+            </div>
+          ) : (
+            historyItems.map((h) => (
+              <button
+                key={h.id}
+                onClick={() => void openHistoryDetail(h.id)}
+                className="w-full text-left rounded-2xl border-2 border-neutral-200 bg-white px-4 py-3 hover:border-indigo-300 transition-colors"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wide text-indigo-600">
+                    {SCENARIOS.find((s) => s.id === h.scenario)?.label ?? h.scenario}
+                  </span>
+                  <span className="text-[11px] text-neutral-400">
+                    {new Date(h.updatedAt).toLocaleString()} · {h.turns} turns
+                  </span>
+                </div>
+                <p className="text-sm font-semibold text-neutral-700 mt-1 truncate">{h.preview}</p>
+                {h.previewEnglish && (
+                  <p className="text-xs text-neutral-400 truncate">{h.previewEnglish}</p>
+                )}
+              </button>
+            ))
+          )}
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto space-y-4 pr-1 mb-4">
+          {messages.map(bubble)}
+          {sending && (
+            <div className="flex justify-start">
+              <div className="bg-white border-2 border-neutral-200 rounded-2xl px-4 py-3">
+                <Loader2 className="w-5 h-5 animate-spin text-neutral-400" />
+              </div>
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
+      )}
 
       {/* Controls */}
       <div className="flex items-center gap-2 mb-3">
@@ -450,12 +528,33 @@ export function ChatCompanion({
         >
           Aa
         </button>
+        <button
+          onClick={() => (historyOpen ? setHistoryOpen(false) : void openHistory())}
+          title={historyOpen ? 'Back to chat' : 'Review past conversations'}
+          className={cn(
+            'p-2 rounded-xl border-2 transition-colors',
+            historyOpen
+              ? 'bg-indigo-50 border-indigo-300 text-indigo-600'
+              : 'bg-white border-neutral-200 text-neutral-400 hover:border-indigo-300'
+          )}
+        >
+          <History className="w-5 h-5" />
+        </button>
         {!sttOk && (
           <p className="text-xs text-neutral-400 ml-auto">Mic unavailable in this browser — text works fine.</p>
         )}
       </div>
 
       <div className="flex gap-2">
+        {historyOpen ? (
+          <button
+            onClick={() => setHistoryOpen(false)}
+            className="flex-1 rounded-2xl border-2 border-indigo-300 bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-700 hover:bg-indigo-100 transition-colors"
+          >
+            Back to live chat
+          </button>
+        ) : (
+        <>
         {sttOk && (
           <button
             onClick={toggleMic}
@@ -485,6 +584,8 @@ export function ChatCompanion({
         >
           <Send className="w-5 h-5" />
         </Button>
+        </>
+        )}
       </div>
 
       <p className="text-[11px] text-neutral-400 mt-2 flex items-center gap-1">
