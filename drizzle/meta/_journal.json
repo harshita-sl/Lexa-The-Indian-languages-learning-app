@@ -15,6 +15,13 @@
       "when": 1792074283248,
       "tag": "0001_adaptive",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792914416748,
+      "tag": "0002_lesson_concept",
+      "breakpoints": true
     }
   ]
 }

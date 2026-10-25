@@ -61,7 +61,14 @@ export function PracticeSession({
       );
       const data = await res.json();
       if (data.item?.options?.length) {
-        setItem(data.item);
+        // Authored content puts the correct option first — shuffle so the
+        // position carries no signal.
+        const shuffledOpts = [...data.item.options];
+        for (let i = shuffledOpts.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffledOpts[i], shuffledOpts[j]] = [shuffledOpts[j], shuffledOpts[i]];
+        }
+        setItem({ ...data.item, options: shuffledOpts });
       } else {
         setItemFailed(true);
       }

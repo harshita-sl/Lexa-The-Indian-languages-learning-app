@@ -16,6 +16,7 @@ interface LessonItem {
   unitId: number;
   order: number;
   completed: boolean;
+  conceptId: string | null;
 }
 
 interface UnitItem {
@@ -86,6 +87,12 @@ const LearnPage = async ({
   if (plan && plan.steps.length === 0) plan = null;
 
   // Dynamically generated curriculum tailored strictly to the selected language
+  const p = lang.toLowerCase();
+  const pronounConcept =
+    p === 'kannada' ? 'kannada_pronouns_neenu_neevu'
+    : p === 'hindi' ? 'hindi_pronouns_tu_aap'
+    : 'telugu_pronouns_basic';
+  const numbersConcept = p === 'telugu' ? 'telugu_vocab_numbers_1_10' : `${p}_vocab_numbers`;
   const defaultUnits: UnitItem[] = [
     {
       id: 1,
@@ -94,9 +101,9 @@ const LearnPage = async ({
       description: `Learn basic words, greetings, and common objects in ${lang}`,
       courseId: activeCourse.id,
       lessons: [
-        { id: 1, title: `${lang} Nouns & Greetings`, unitId: 1, order: 1, completed: false },
-        { id: 2, title: `${lang} Everyday Objects`, unitId: 1, order: 2, completed: false },
-        { id: 3, title: `${lang} Expressions`, unitId: 1, order: 3, completed: false },
+        { id: 1, title: `${lang} Greetings`, unitId: 1, order: 1, completed: false, conceptId: `${p}_vocab_greetings` },
+        { id: 2, title: `${lang} Family & People`, unitId: 1, order: 2, completed: false, conceptId: `${p}_vocab_family` },
+        { id: 3, title: `${lang} Pronouns`, unitId: 1, order: 3, completed: false, conceptId: pronounConcept },
       ],
     },
     {
@@ -106,20 +113,8 @@ const LearnPage = async ({
       description: `Master numbers, questions, and daily phrases in ${lang}`,
       courseId: activeCourse.id,
       lessons: [
-        { id: 4, title: `${lang} Numbers 1-10`, unitId: 2, order: 1, completed: false },
-        { id: 5, title: `Asking Questions in ${lang}`, unitId: 2, order: 2, completed: false },
-        { id: 6, title: `${lang} Food & Dining`, unitId: 2, order: 3, completed: false },
-      ],
-    },
-    {
-      id: 3,
-      order: 3,
-      title: `Unit 3: ${lang} Conversation Practice`,
-      description: `Engage in interactive dialogues and grammar patterns in ${lang}`,
-      courseId: activeCourse.id,
-      lessons: [
-        { id: 7, title: `${lang} Dialogue Practice`, unitId: 3, order: 1, completed: false },
-        { id: 8, title: `${lang} Travel & Directions`, unitId: 3, order: 2, completed: false },
+        { id: 4, title: `${lang} Numbers 1-10`, unitId: 2, order: 1, completed: false, conceptId: numbersConcept },
+        { id: 5, title: `${lang} Food & Dining`, unitId: 2, order: 2, completed: false, conceptId: `${p}_vocab_food` },
       ],
     },
   ];
@@ -130,6 +125,30 @@ const LearnPage = async ({
   const units: UnitItem[] = (dbUnits && dbUnits.length > 0 && dbUnits[0].courseId === activeCourse.id && dbUnits[0].lessons.length > 0)
     ? (dbUnits as unknown as UnitItem[])
     : defaultUnits;
+
+  // Progression comes from the learner model, not the legacy
+  // challenge_progress table (which nothing writes): a lesson counts as
+  // completed once its concept has any FSRS activity for this learner.
+  const learnedConcepts = new Set<string>();
+  try {
+    const db = (await import('@/db/drizzle')).default;
+    const { learnerKnowledgeNodes } = await import('@/db/schema');
+    const { and, eq } = await import('drizzle-orm');
+    const nodes = await db.query.learnerKnowledgeNodes.findMany({
+      where: and(
+        eq(learnerKnowledgeNodes.userId, userProgress.userId),
+        eq(learnerKnowledgeNodes.courseId, activeCourse.id)
+      ),
+    });
+    for (const n of nodes) if (n.reps > 0) learnedConcepts.add(n.conceptId);
+  } catch {}
+  for (const unit of units) {
+    for (const lesson of unit.lessons) {
+      if (lesson.conceptId && learnedConcepts.has(lesson.conceptId)) {
+        lesson.completed = true;
+      }
+    }
+  }
 
   // Find active lesson (first uncompleted lesson)
   let activeLesson: (LessonItem & { unit: UnitItem }) | undefined = undefined;

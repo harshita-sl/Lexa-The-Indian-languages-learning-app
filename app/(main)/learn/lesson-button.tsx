@@ -19,6 +19,8 @@ type Props = {
     locked?: boolean;
     percentage: number;
     language?: string;
+    conceptId?: string | null;
+    title?: string;
 };
 
 export const LessonButton = ({
@@ -28,7 +30,9 @@ export const LessonButton = ({
     locked,
     current,
     percentage,
-    language = "Telugu"
+    language = "Telugu",
+    conceptId,
+    title,
 }: Props) => {
     const cycleLength = 8;
     const cycleIndex = index % cycleLength;
@@ -51,7 +55,9 @@ export const LessonButton = ({
     const isCompleted = !current && !locked;
 
     const Icon = isCompleted ? Check : locked ? Lock : isLast ? Crown : Star;
-    const href = `/learn/lesson/${id}?language=${encodeURIComponent(language)}`;
+    const href = `/learn/lesson/${id}?language=${encodeURIComponent(language)}` +
+        (conceptId ? `&conceptId=${encodeURIComponent(conceptId)}` : '') +
+        (title ? `&topic=${encodeURIComponent(title)}` : '');
 
     return (
         <Link 

@@ -40,6 +40,8 @@ export const Unit = ({
                             locked={isLocked}
                             percentage={activeLessonPercentage}
                             language={language}
+                            conceptId={lesson.conceptId}
+                            title={lesson.title}
                         />
                     );
                 })}

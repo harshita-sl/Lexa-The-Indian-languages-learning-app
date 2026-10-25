@@ -34,6 +34,21 @@ interface LessonData {
   xp: number;
 }
 
+/** Options are authored with the correct answer first — shuffle once per
+ *  challenge so position carries no signal. */
+function shuffled<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function shuffleChallengeOptions(c: ChallengeData): ChallengeData {
+  return { ...c, options: shuffled(c.options ?? []) };
+}
+
 function LessonContent() {
   const params = useParams();
   const router = useRouter();
@@ -96,12 +111,14 @@ function LessonContent() {
               title: `${targetLang} - ${targetTopic}`,
               unitId: 1,
               order: 1,
-              challenges: items.map((it) => ({
-                ...(it.payload as Omit<ChallengeData, 'type' | 'difficulty' | 'conceptId'>),
-                type: it.type,
-                difficulty: it.difficultyB,
-                conceptId: it.conceptId,
-              })),
+              challenges: items.map((it) =>
+                shuffleChallengeOptions({
+                  ...(it.payload as Omit<ChallengeData, 'type' | 'difficulty' | 'conceptId'>),
+                  type: it.type,
+                  difficulty: it.difficultyB,
+                  conceptId: it.conceptId,
+                })
+              ),
               currentChallengeIndex: 0,
               hearts: 5,
               points: 0,
@@ -133,7 +150,7 @@ function LessonContent() {
           title: `${targetLang} - ${targetTopic}`,
           unitId: 1,
           order: 1,
-          challenges: data.challenges,
+          challenges: (data.challenges as ChallengeData[]).map(shuffleChallengeOptions),
           currentChallengeIndex: 0,
           hearts: 5,
           points: 0,

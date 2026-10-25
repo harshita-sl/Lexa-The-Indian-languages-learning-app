@@ -165,6 +165,16 @@ export async function composeLesson(
     }
   }
 
+  // Revisited concept → reserve one mid-lesson slot for a freshly
+  // generated item so repeat visits aren't the same bank set again.
+  const revisited = nodes.some(
+    (n) => n.conceptId === conceptId && n.reps > 0
+  );
+  const freshSlot = revisited ? Math.min(1, length - 1) : -1;
+  // Generation cache keys include context — the day bucket gives a fresh
+  // item per day while still deduping same-day repeats.
+  const dayBucket = now.toISOString().slice(0, 10);
+
   // Fill from the bank, rotating style-affined types.
   for (let i = items.length; i < length; i++) {
     const targetBeta = startBeta + ((endBeta - startBeta) * i) / Math.max(length - 1, 1);
@@ -172,10 +182,26 @@ export async function composeLesson(
     const typed = bank.filter(
       (r) => !usedBankIds.has(r.id) && r.type === wantType
     );
-    const rest = bank.filter((r) => !usedBankIds.has(r.id));
-    const row = closestByBeta(typed.length ? typed : rest, targetBeta);
+    // Style affinity is a preference, not a hard filter — but honor it
+    // before falling back to any remaining type.
+    const affined = bank.filter(
+      (r) => !usedBankIds.has(r.id) && affinity.includes(r.type as typeof affinity[number])
+    );
+    // A style without speech affinity never gets speech items — a visual
+    // learner shouldn't be handed LISTEN just because the bank ran out.
+    const noSpeechStyle = !affinity.includes('LISTEN') && !affinity.includes('SPEAK');
+    const rest = bank.filter(
+      (r) =>
+        !usedBankIds.has(r.id) &&
+        (!noSpeechStyle || (r.type !== 'LISTEN' && r.type !== 'SPEAK'))
+    );
+    const row = pickByBeta(
+      typed.length ? typed : affined.length ? affined : rest,
+      targetBeta
+    );
 
-    if (row) {
+    const preferGen = i === freshSlot;
+    if (row && !preferGen) {
       usedBankIds.add(row.id);
       const q = (row.payload as { question?: string }).question;
       if (q) usedQuestions.add(q);
@@ -190,7 +216,7 @@ export async function composeLesson(
       continue;
     }
 
-    // Bank exhausted → LLM generation for the missing slot.
+    // Bank exhausted (or the fresh revisit slot) → LLM generation.
     try {
       const gen = await repo.generateItem({
         language,
@@ -199,22 +225,40 @@ export async function composeLesson(
         challengeType: wantType,
         userLevel: input.userLevel ?? 'beginner',
         conceptId,
-        context: `lesson:${conceptId}:slot${i}`,
+        context: `lesson:${conceptId}:slot${i}:${dayBucket}`,
       });
-      // Skip if the generator echoed a question already in this lesson.
-      if (usedQuestions.has(gen.question)) continue;
-      usedQuestions.add(gen.question);
-      items.push({
-        conceptId,
-        type: gen.type ?? wantType,
-        difficultyB: targetBeta,
-        payload: gen as unknown as Record<string, unknown>,
-        source: 'llm',
-        itemId: `llm_${conceptId}_${i}`,
-      });
+      // Generator echoed a question already in this lesson → fall back to
+      // the bank pick rather than shrink the lesson.
+      if (usedQuestions.has(gen.question)) {
+        if (!row) continue;
+      } else {
+        usedQuestions.add(gen.question);
+        items.push({
+          conceptId,
+          type: gen.type ?? wantType,
+          difficultyB: targetBeta,
+          payload: gen as unknown as Record<string, unknown>,
+          source: 'llm',
+          itemId: `llm_${conceptId}_${i}`,
+        });
+        continue;
+      }
     } catch {
-      // Generator failed — skip the slot rather than break the lesson.
+      // Generator failed — fall back to the bank pick if we have one.
+      if (!row) continue;
     }
+
+    usedBankIds.add(row!.id);
+    const q = (row!.payload as { question?: string }).question;
+    if (q) usedQuestions.add(q);
+    items.push({
+      conceptId,
+      type: (row!.type as ChallengeType) ?? 'SELECT',
+      difficultyB: row!.difficultyB,
+      payload: row!.payload as Record<string, unknown>,
+      source: 'bank',
+      itemId: row!.id,
+    });
   }
 
   return {
@@ -233,6 +277,18 @@ function closestByBeta(rows: BankItemRow[], beta: number): BankItemRow | undefin
   return rows.reduce((a, b) =>
     Math.abs(b.difficultyB - beta) < Math.abs(a.difficultyB - beta) ? b : a
   );
+}
+
+/**
+ * Difficulty-matched but varied: pick randomly among the 3 closest-β
+ * candidates so revisits don't re-serve the identical best match.
+ */
+function pickByBeta(rows: BankItemRow[], beta: number): BankItemRow | undefined {
+  if (rows.length === 0) return undefined;
+  const ranked = [...rows].sort(
+    (a, b) => Math.abs(a.difficultyB - beta) - Math.abs(b.difficultyB - beta)
+  );
+  return ranked[Math.floor(Math.random() * Math.min(3, ranked.length))];
 }
 
 /** A decayed prerequisite of conceptId, if any — the thing to refresh first. */

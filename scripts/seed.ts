@@ -39,83 +39,136 @@ const main = async () => {
       },
     ])
 
-    await db.insert(schema.units).values([
-      {
-        id: 1,
-        title: "Unit 1",
-        description: "Learn basics of telugu",
-        courseId: 1,
-        order: 1,
-      },
-    ]);
+    // Curriculum: each lesson is bound to an adaptive concept so the grid
+    // drives the adaptive composer (bank + LLM), not the fixed generator.
+    const CURRICULUM: Record<number, { unit: string; description: string; lessons: [string, string][] }[]> = {
+      1: [ // Telugu
+        {
+          unit: 'Unit 1: Sounds & Script',
+          description: 'Telugu vowels and the first consonant groups',
+          lessons: [
+            ['Short vowels', 'telugu_script_vowels_short'],
+            ['Long vowels', 'telugu_script_vowels_long'],
+            ['Ka-varga consonants', 'telugu_script_consonants_kvarga'],
+          ],
+        },
+        {
+          unit: 'Unit 2: Everyday Words',
+          description: 'Greetings, numbers, family, and food',
+          lessons: [
+            ['Greetings', 'telugu_vocab_greetings'],
+            ['Numbers 1-10', 'telugu_vocab_numbers_1_10'],
+            ['Family words', 'telugu_vocab_family'],
+            ['Food & drink', 'telugu_vocab_food'],
+          ],
+        },
+        {
+          unit: 'Unit 3: Building Sentences',
+          description: 'Pronouns, respect, and present/past verbs',
+          lessons: [
+            ['Pronouns', 'telugu_pronouns_basic'],
+            ['Speaking respectfully', 'telugu_pronouns_honorific'],
+            ['Present tense', 'telugu_verb_present_aa'],
+            ['Past tense', 'telugu_verb_past_aa'],
+          ],
+        },
+        {
+          unit: 'Unit 4: Real Grammar',
+          description: 'Cases, word order, and negation',
+          lessons: [
+            ['The -ku case', 'telugu_vibhakti_dative'],
+            ['Word order (SOV)', 'telugu_syntax_sov'],
+            ['Saying "no"', 'telugu_negation_ledhu'],
+          ],
+        },
+      ],
+      3: [ // Kannada
+        {
+          unit: 'Unit 1: Sounds & Script',
+          description: 'Kannada vowels and consonants',
+          lessons: [
+            ['Vowels', 'kannada_script_vowels'],
+            ['Consonants', 'kannada_script_consonants'],
+          ],
+        },
+        {
+          unit: 'Unit 2: Everyday Words',
+          description: 'Greetings, numbers, family, and food',
+          lessons: [
+            ['Greetings', 'kannada_vocab_greetings'],
+            ['Numbers', 'kannada_vocab_numbers'],
+            ['Family words', 'kannada_vocab_family'],
+            ['Food & drink', 'kannada_vocab_food'],
+          ],
+        },
+        {
+          unit: 'Unit 3: Building Sentences',
+          description: 'Pronouns and verbs',
+          lessons: [
+            ['Neenu vs neevu', 'kannada_pronouns_neenu_neevu'],
+            ['Present tense', 'kannada_verb_present'],
+            ['Past tense', 'kannada_verb_past'],
+          ],
+        },
+        {
+          unit: 'Unit 4: Real Grammar',
+          description: 'Cases, word order, and negation',
+          lessons: [
+            ['The -ge case', 'kannada_vibhakti_dative'],
+            ['The -alli case', 'kannada_vibhakti_locative'],
+            ['Saying "no"', 'kannada_negation_illa'],
+            ['Word order (SOV)', 'kannada_syntax_sov'],
+          ],
+        },
+      ],
+      2: [ // Hindi
+        {
+          unit: 'Unit 1: Basics',
+          description: 'Vowels, consonants, and greetings',
+          lessons: [
+            ['Vowels', 'hindi_script_vowels'],
+            ['Consonants', 'hindi_script_consonants'],
+            ['Greetings', 'hindi_vocab_greetings'],
+            ['Numbers', 'hindi_vocab_numbers'],
+          ],
+        },
+        {
+          unit: 'Unit 2: Sentences',
+          description: 'Pronouns, verbs, and negation',
+          lessons: [
+            ['Tu vs aap', 'hindi_pronouns_tu_aap'],
+            ['Present tense', 'hindi_verb_present'],
+            ['Past tense', 'hindi_verb_past'],
+            ['Saying "no"', 'hindi_negation'],
+          ],
+        },
+      ],
+    };
 
-    await db.insert(schema.lessons).values([
-      {
-        id: 1,
-        title: "Noun",
-        unitId: 1,
-        order: 1,
-      },
-      // {
-      //   id: 2,
-      //   title: "Verbs",
-      //   unitId: 1,
-      //   order: 2,
-      // },
-    ]);
-    await db.insert(schema.challenges).values([
-      {
-        id: 1,
-        lessonId: 1,
-        type: "SELECT",
-        question: 'What is called "bed"? ',
-        order: 1,
-        conceptId: "telugu_vocab_family",
-        skill: "vocabulary",
-        itemDifficulty: betaForConcept("telugu_vocab_family"),
-      },
-      // {
-      //   id: 2,
-      //   lessonId: 2,
-      //   type: "ASSIST",
-      //   question: "How do you say 'to run' in Telugu?",
-      //   order: 2,
-      // },
-    ]);
-    await db.insert(schema.challengeOptions).values([
-      {
-        id: 1,
-        challengeId: 1,
-        imageSrc: "/bed.svg",
-        correct: true,
-        text: "మంచం",
-        audioSrc: "/mancham.mp3",
-      },
-      {
-        id: 2,
-        challengeId: 1,
-        imageSrc: "/chair.svg",
-        correct: false,
-        text: "కుర్చీ",
-        audioSrc: "/kurchi.mp3",
-      },
-      {
-        id: 3,
-        challengeId: 1,
-        imageSrc: "/rangamu.svg",
-        correct: false,
-        text: "రంగము",
-        audioSrc: "/rangamu.mp3",
-      },
-      {
-        id: 4,
-        challengeId: 1,
-        imageSrc: "/suryudu.svg",
-        correct: false,
-        text: "సూర్యుడు",
-        audioSrc: "/suryudu.mp3",
-      },
-    ]);
+    let lessonSeq = 1;
+    for (const [courseIdStr, unitsDef] of Object.entries(CURRICULUM)) {
+      const courseId = parseInt(courseIdStr, 10);
+      for (const [ui, u] of unitsDef.entries()) {
+        const [unitRow] = await db
+          .insert(schema.units)
+          .values({
+            title: u.unit,
+            description: u.description,
+            courseId,
+            order: ui + 1,
+          })
+          .returning();
+        for (const [li, [title, conceptId]] of u.lessons.entries()) {
+          await db.insert(schema.lessons).values({
+            id: lessonSeq++,
+            title,
+            unitId: unitRow.id,
+            order: li + 1,
+            conceptId,
+          });
+        }
+      }
+    }
     // ── Adaptive-path content ──────────────────────────────────────────────
     await db.delete(schema.practiceItems);
     await db.delete(schema.spokenContent);
