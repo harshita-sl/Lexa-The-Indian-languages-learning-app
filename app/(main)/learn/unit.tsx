@@ -12,37 +12,40 @@ type Props = {
         unit: typeof units.$inferSelect;
     } | undefined;
     activeLessonPercentage: number;
+    language?: string;
 };
 
 export const Unit = ({
-    id,
-    order,
     title,
     description,
     lessons,
     activeLesson,
     activeLessonPercentage,
+    language,
 }: Props) => {
     return (
         <>
-        <Unitbanner title={title} description={description} />
-        <div className="flex items-center flex-col relative">
-            {lessons.map((lesson, index) => {
-                const isCurrent = true || lesson.id === activeLesson?.id;
-                const isLocked = !lesson.completed && !isCurrent;
-                return (
-                    <LessonButton 
-                    key={lesson.id}
-                    id={lesson.id}
-                    index={index}
-                    totalCount={lessons.length -1}
-                    current={isCurrent}
-                    locked={isLocked}
-                    percentage={activeLessonPercentage}
-                    />
-                )
-            })}
-        </div>
+            <Unitbanner title={title} description={description} />
+            <div className="flex items-center flex-col relative">
+                {lessons.map((lesson, index) => {
+                    const isCurrent = activeLesson ? lesson.id === activeLesson.id : index === 0;
+                    const isLocked = !lesson.completed && !isCurrent;
+                    return (
+                        <LessonButton 
+                            key={lesson.id}
+                            id={lesson.id}
+                            index={index}
+                            totalCount={lessons.length - 1}
+                            current={isCurrent}
+                            locked={isLocked}
+                            percentage={activeLessonPercentage}
+                            language={language}
+                            conceptId={lesson.conceptId}
+                            title={lesson.title}
+                        />
+                    );
+                })}
+            </div>
         </>
     );
 };

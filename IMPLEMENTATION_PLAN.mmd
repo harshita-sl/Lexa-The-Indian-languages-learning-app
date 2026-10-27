@@ -1,0 +1,113 @@
+%% ==============================================================================
+%% LEXA AI-NATIVE ADAPTIVE LANGUAGE MASTERY ENGINE - IMPLEMENTATION ARCHITECTURE
+%% ==============================================================================
+
+graph TD
+    %% --------------------------------------------------------------------------
+    %% STYLING & CLASS DEFINITIONS
+    %% --------------------------------------------------------------------------
+    classDef deprecated fill:#fee2e2,stroke:#ef4444,stroke-width:2px,stroke-dasharray: 5 5,color:#991b1b;
+    classDef foundation fill:#f0fdf4,stroke:#22c55e,stroke-width:2px,color:#166534;
+    classDef indic fill:#fef3c7,stroke:#f59e0b,stroke-width:2px,color:#92400e;
+    classDef adaptive fill:#e0e7ff,stroke:#6366f1,stroke-width:2px,color:#3730a3;
+    classDef curriculum fill:#fce7f3,stroke:#ec4899,stroke-width:2px,color:#9d174d;
+    classDef database fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#1e293b;
+    classDef userLayer fill:#f8fafc,stroke:#0ea5e9,stroke-width:3px,color:#0369a1;
+
+    %% --------------------------------------------------------------------------
+    %% 0. DEPRECATED / REMOVED GAMIFICATION
+    %% --------------------------------------------------------------------------
+    subgraph G_DEPRECATED ["❌ 1. DELETED GAMIFICATION LAYER (Dopamine Casino Traps)"]
+        D1["Hearts / Lives System<br/>(Punishes Mistakes)"]:::deprecated
+        D2["Fake Static Leaderboards<br/>(Aarav, Priya, etc.)"]:::deprecated
+        D3["XP Boosters & Gems Shop<br/>(Superficial Vanity)"]:::deprecated
+        D4["Streak Freezes & Quests<br/>(App-opening metrics)"]:::deprecated
+    end
+
+    %% --------------------------------------------------------------------------
+    %% 1. USER & CLIENT INTERACTION LAYER
+    %% --------------------------------------------------------------------------
+    subgraph G_USER ["👤 2. REDESIGNED USER EXPERIENCE (Zero-Gamification Studio)"]
+        UI_Learn["/learn<br/>Adaptive Dynamic Feed"]:::userLayer
+        UI_Mastery["/mastery<br/>Knowledge Graph & Decay Heatmap"]:::userLayer
+        UI_Practice["/practice<br/>FSRS Due Review Sessions"]:::userLayer
+        UI_Lesson["/learn/lesson/[id]<br/>Iterative Coaching & Retries"]:::userLayer
+        UI_Profile["/profile<br/>CEFR Fluency Diagnostics"]:::userLayer
+    end
+
+    %% --------------------------------------------------------------------------
+    %% 2. CORE ADAPTIVE & COGNITIVE ENGINE
+    %% --------------------------------------------------------------------------
+    subgraph G_ADAPTIVE ["🧠 3. ADAPTIVE COGNITIVE BRAIN (FSRS & DKT)"]
+        FSRS["FSRS Scheduler Engine<br/>lib/ai/adaptive/fsrs-scheduler.ts<br/>R(t) = (1 + 0.19 * t/S)^(-0.5)"]:::adaptive
+        KG["Knowledge Graph Manager<br/>lib/ai/adaptive/knowledge-graph.ts<br/>(Prerequisites, Lemmas, Rules)"]:::adaptive
+        ZPD["ZPD Calculator (i+1)<br/>lib/ai/adaptive/zpd-calculator.ts<br/>(Zone of Proximal Development)"]:::adaptive
+        CURR["Curriculum Pacing Engine<br/>lib/ai/adaptive/curriculum-engine.ts<br/>(Dynamic Branching Pathways)"]:::curriculum
+    end
+
+    %% --------------------------------------------------------------------------
+    %% 3. INDIC LINGUISTIC INTELLIGENCE LAYER
+    %% --------------------------------------------------------------------------
+    subgraph G_INDIC ["🇮🇳 4. INDIC LINGUISTIC INTELLIGENCE (The Deep Moat)"]
+        TRANS["Transliteration Bridge<br/>lib/ai/indic/transliteration.ts<br/>(Romanized ↔ Akshara ↔ ITRANS)"]:::indic
+        HONOR["Honorific & Register Engine<br/>lib/ai/indic/honorific-evaluator.ts<br/>(Nuvvu/Meeru, Tu/Tum/Aap)"]:::indic
+        ERROR["4D Error Diagnoser<br/>lib/ai/indic/error-diagnoser.ts<br/>(Syntax, L1 Interf, Phonetics, Pragmatics)"]:::indic
+        GEN["Indic Challenge Generator<br/>lib/ai/challenge-generator.ts<br/>(Culturally Authentic Scenarios)"]:::indic
+    end
+
+    %% --------------------------------------------------------------------------
+    %% 4. PERSISTENT DATABASE & MEMORY SCHEMA
+    %% --------------------------------------------------------------------------
+    subgraph G_DB ["💾 5. PERSISTENT NEON POSTGRESQL + DRIZZLE ORM"]
+        DB_User["user_progress<br/>- completedChallenges<br/>- accuracyRate<br/>- activeCourseId"]:::database
+        DB_Nodes["learner_knowledge_nodes<br/>- conceptId (Lemma/Rule)<br/>- stability (S)<br/>- difficulty (D)<br/>- retrievability (R)<br/>- dueAt, lapses"]:::database
+        DB_Logs["learner_sessions<br/>- latencyMs<br/>- errorClassification<br/>- acousticPhoneticScore"]:::database
+        DB_Prefs["user_preferences<br/>- nativeLanguage<br/>- currentLevel (A1-B2)<br/>- targetRegister (Spoken/Formal)"]:::database
+    end
+
+    %% --------------------------------------------------------------------------
+    %% 5. AI FOUNDATION SERVICES
+    %% --------------------------------------------------------------------------
+    subgraph G_MODELS ["⚡ 6. AI PROVIDERS & MULTI-AGENT ORCHESTRATION"]
+        M_LLM["LLM Engine<br/>(Gemini 1.5 Flash / GPT-4o)"]:::foundation
+        M_INDIC["Indic Multi-Modal Models<br/>(Sarvam-1 / IndicTrans2)"]:::foundation
+        M_CACHE["Input-Hash Semantic Cache<br/>ai_generated_content"]:::foundation
+    end
+
+    %% --------------------------------------------------------------------------
+    %% RELATIONSHIPS & DATA FLOWS
+    %% --------------------------------------------------------------------------
+    UI_Lesson -->|Submits Answer & Latency| ERROR
+    ERROR -->|Classifies Mistake Type| FSRS
+    FSRS -->|Updates S, D, R, Due Date| DB_Nodes
+    DB_Nodes -->|Decay Curves & Due Items| KG
+    KG -->|Active Mastery Envelope| ZPD
+    ZPD -->|Next i+1 Concept Targets| CURR
+    CURR -->|Generates Adaptive Step| GEN
+    GEN -->|Applies Transliteration Scaffolding| TRANS
+    GEN -->|Injects Pragmatic Respect Rules| HONOR
+    GEN -->|Fetches / Caches Scenarios| M_CACHE
+    GEN -->|Calls Multi-Agent Prompt| M_LLM
+    GEN -->|Renders Scenarios| UI_Lesson
+
+    UI_Mastery -->|Visualizes Retention| DB_Nodes
+    UI_Practice -->|Pulls Due Review Items| FSRS
+    UI_Learn -->|Pulls Personalized Next Step| CURR
+
+    DB_User -.->|Replaces Hearts/XP with Real Fluency| UI_Profile
+    DB_Prefs -.->|Calibrates Native Language Scaffolding| ERROR
+
+    %% --------------------------------------------------------------------------
+    %% IMPLEMENTATION PHASES
+    %% --------------------------------------------------------------------------
+    subgraph G_PHASES ["🚀 7. MODULAR MVP IMPLEMENTATION PHASES"]
+        direction TB
+        P1["Phase 1: Strip Gamification & Clean DB Foundation<br/>- Remove hearts/XP/points<br/>- Delete shop/leaderboard/quests<br/>- Zero-failure iterative lesson loop"]:::foundation
+        P2["Phase 2: Indic Linguistic Intelligence<br/>- Transliteration bridge (ITRANS ↔ Script)<br/>- Honorific/Register validation<br/>- 4D Error diagnoser (Syntax/L1/Phonetic)"]:::indic
+        P3["Phase 3: Adaptive Knowledge Graph (FSRS)<br/>- DSR Spaced Repetition engine<br/>- Concept mastery nodes<br/>- Mastery heatmap dashboard"]:::adaptive
+        P4["Phase 4: Pedagogical Scaffolding<br/>- ZPD (i+1) Calculator<br/>- Dynamic curriculum generator<br/>- Flow-state adaptive feed"]:::curriculum
+
+        P1 ==> P2
+        P2 ==> P3
+        P3 ==> P4
+    end

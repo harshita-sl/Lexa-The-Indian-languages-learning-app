@@ -1,6 +1,8 @@
 import { getCourses, getUserProgress } from "@/db/queries";
 import { List } from "./list";
-import { get } from "http";
+
+// Per-user activeCourseId — must render per-request, not at build time.
+export const dynamic = "force-dynamic";
 
 const CoursesPage = async() => {
     const coursesData = getCourses();

@@ -16,7 +16,7 @@ export const Footer = () => {
       </Button>
       <Button size="lg" variant="ghost" className="w-40" >
         <Image
-          src="/kannada.svg"
+          src="/kan.svg"
           alt="kannada"
           height={32}
           width={40}

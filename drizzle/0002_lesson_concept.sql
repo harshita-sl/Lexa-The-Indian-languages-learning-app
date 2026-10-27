@@ -1,0 +1,1 @@
+ALTER TABLE "lessons" ADD COLUMN "concept_id" text;

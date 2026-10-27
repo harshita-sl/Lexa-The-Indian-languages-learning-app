@@ -41,5 +41,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# embedded dev database (PGlite)
+/.local/
+
 # clerk configuration (can include secrets)
 /.clerk/
