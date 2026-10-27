@@ -4,7 +4,7 @@
  * Swap providers via env:
  *   LLM_PROVIDER=gemini | groq | openai   (default: gemini)
  *   GEMINI_API_KEY / GEMINI_MODEL         (default model: gemini-2.5-flash)
- *   GROQ_API_KEY   / GROQ_MODEL           (default model: llama-3.3-70b-versatile)
+ *   GROQ_API_KEY   / GROQ_MODEL           (default model: openai/gpt-oss-120b)
  *   OPENAI_API_KEY / OPENAI_MODEL         (default model: gpt-4o-mini)
  *
  * Every function throws on total failure — callers are expected to have
@@ -27,15 +27,19 @@ type Provider = 'gemini' | 'groq' | 'openai';
 
 const provider: Provider = (process.env.LLM_PROVIDER as Provider) || 'gemini';
 
+// Cloudflare-fronted APIs (api.groq.com et al.) reset Node's default undici
+// TLS fingerprint; a browser UA passes — same fix as lib/ai/speech/gnani.ts.
+const UA = 'Mozilla/5.0 (X11; Linux x86_64) LexaApp/1.0';
+
 // Newer keys/projects may not have access to older model IDs; try in order.
+// (gemini-2.5-flash-lite / gemini-2.0-flash were retired by Google.)
 const GEMINI_FALLBACK_MODELS = [
   process.env.GEMINI_MODEL,
   'gemini-2.5-flash',
-  'gemini-2.5-flash-lite',
-  'gemini-2.0-flash',
+  'gemini-3.8-flash',
 ].filter((m): m is string => Boolean(m));
 
-const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+const GROQ_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
 let workingGeminiModel: string | null = null;
@@ -65,7 +69,7 @@ async function geminiCompletion(
         `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey, 'User-Agent': UA },
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: system }] },
             contents: messages.map((m) => ({
@@ -111,7 +115,7 @@ async function openAICompatibleCompletion(
   if (!apiKey) throw new Error(`${keyName} is not set`);
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}`, 'User-Agent': UA },
     body: JSON.stringify({
       model: opts.model || model,
       messages: [{ role: 'system', content: system }, ...messages],

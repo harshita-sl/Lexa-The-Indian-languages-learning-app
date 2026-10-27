@@ -33,10 +33,11 @@ const replySchema = z.object({
         term: z.string(),
         translit: z.string().nullish(),
         gloss: z.string(),
-        register: z.enum(['casual', 'very_informal', 'rude', 'regional', 'formal']).default('casual'),
+        register: z.enum(['casual', 'very_informal', 'rude', 'regional', 'formal']).catch('casual'),
         region: z.string().nullish(),
       })
     )
+    .catch([])
     .default([]),
   correction: z
     .object({
@@ -45,6 +46,7 @@ const replySchema = z.object({
       why: z.string(),
     })
     .nullable()
+    .catch(null)
     .default(null),
 });
 
@@ -53,7 +55,39 @@ function parseReplyJson(raw: string): unknown {
   const cleaned = raw.replace(/```(?:json)?/gi, '').trim();
   const start = cleaned.indexOf('{');
   const end = cleaned.lastIndexOf('}');
-  return JSON.parse(start >= 0 ? cleaned.slice(start, end + 1) : cleaned);
+  const candidate = start >= 0 ? cleaned.slice(start, end + 1) : cleaned;
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    // Model hit the output cap mid-JSON — close cut strings, drop the
+    // dangling fragment, close open braces/brackets, and retry once.
+    return JSON.parse(repairTruncatedJson(candidate));
+  }
+}
+
+function repairTruncatedJson(s: string): string {
+  const stack: string[] = [];
+  let inStr = false;
+  let esc = false;
+  for (const ch of s) {
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === '\\') esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === '{') stack.push('}');
+    else if (ch === '[') stack.push(']');
+    else if (ch === '}' || ch === ']') stack.pop();
+  }
+  let out = inStr ? `${s}"` : s;
+  // Drop a trailing incomplete member: `, "key"`, `, "key":`, `{ "key":` etc.
+  out = out
+    .replace(/,\s*"[^"]*"\s*:?\s*$/, ',')
+    .replace(/{\s*"[^"]*"\s*:?\s*$/, '{')
+    .replace(/,\s*$/, '');
+  return out + stack.reverse().join('');
 }
 
 const SCENARIOS: Record<string, string> = {
@@ -134,7 +168,7 @@ export async function POST(request: Request) {
       raw = await chatCompletion(
         buildSystemPrompt(language, userLevel, scenario, ranked),
         [...history.slice(-10), { role: 'user' as const, content: message }],
-        { temperature: 0.7, maxTokens: 600, responseFormat: 'json' }
+        { temperature: 0.7, maxTokens: 1600, responseFormat: 'json' }
       );
       reply = replySchema.parse(parseReplyJson(raw));
     } catch (e) {

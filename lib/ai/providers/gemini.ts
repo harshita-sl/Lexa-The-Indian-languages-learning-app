@@ -24,7 +24,7 @@ export async function generateCompletionGemini(
   } = {}
 ): Promise<string> {
   const ai = getGenAI();
-  const modelName = options.model || 'gemini-1.5-flash';
+  const modelName = options.model || 'gemini-2.5-flash';
   const temperature = options.temperature ?? 0.7;
   const maxTokens = options.maxTokens || 2000;
 
@@ -67,7 +67,7 @@ export async function generateStreamGemini(
   } = {}
 ): Promise<string> {
   const ai = getGenAI();
-  const modelName = options.model || 'gemini-1.5-flash';
+  const modelName = options.model || 'gemini-2.5-flash';
   const temperature = options.temperature ?? 0.8;
   const maxTokens = options.maxTokens || 300;
 
