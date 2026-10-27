@@ -317,6 +317,20 @@ export const spokenContent = pgTable("spoken_content", {
     spokenHashIdx: uniqueIndex("sc_lang_hash_idx").on(t.language, t.contentHash),
 }));
 
+// Server-side TTS audio cache — Gnani calls are metered, so synthesized bytes
+// persist keyed by text+language+voice+model hash. Base64 text keeps the
+// column portable across neon-http / node-postgres / PGlite.
+export const ttsAudioCache = pgTable("tts_audio_cache", {
+    id: serial("id").primaryKey(),
+    keyHash: text("key_hash").notNull(),
+    language: text("language").notNull(),
+    contentType: text("content_type").notNull().default("audio/wav"),
+    audioB64: text("audio_b64").notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+}, (t) => ({
+    keyHashIdx: uniqueIndex("tac_key_hash_idx").on(t.keyHash),
+}));
+
 export const learnerSkillStateRelations = relations(learnerSkillState, ({ one }) => ({
     course: one(courses, { fields: [learnerSkillState.courseId], references: [courses.id] }),
 }));
@@ -328,3 +342,4 @@ export const recommendationLogRelations = relations(recommendationLog, ({ one })
     course: one(courses, { fields: [recommendationLog.courseId], references: [courses.id] }),
 }));
 export const spokenContentRelations = relations(spokenContent, ({ }) => ({}));
+export const ttsAudioCacheRelations = relations(ttsAudioCache, ({ }) => ({}));

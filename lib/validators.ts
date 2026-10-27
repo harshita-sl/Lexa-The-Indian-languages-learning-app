@@ -64,6 +64,7 @@ export const chatSchema = z.object({
     .max(20)
     .default([]),
   courseId: z.number().int().positive().optional().default(1),
+  conversationId: z.number().int().positive().optional(),
 });
 export type ChatBody = z.infer<typeof chatSchema>;
 

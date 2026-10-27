@@ -109,7 +109,7 @@ export async function POST(request: Request) {
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid chat payload', issues: parsed.error.issues }, { status: 400 });
     }
-    const { language, userLevel, scenario = 'free', message, history, courseId } = parsed.data;
+    const { language, userLevel, scenario = 'free', message, history, courseId, conversationId } = parsed.data;
 
     // Retrieve relevant slang/phrases by naive keyword match on scenario + message
     const rows = await db.query.spokenContent
@@ -207,6 +207,7 @@ export async function POST(request: Request) {
     // user + language + scenario within SESSION_WINDOW — updates one row so
     // review history reads as coherent conversations, not turn snapshots.
     const SESSION_WINDOW_MS = 30 * 60 * 1000;
+    let persistedConversationId: number | undefined;
     try {
       const assistantTurn = {
         role: 'assistant',
@@ -216,28 +217,42 @@ export async function POST(request: Request) {
         ...(offline ? { offline: true } : {}),
       };
       const userTurn = { role: 'user', content: message };
-      const recent = await db.query.conversations.findFirst({
-        where: and(
-          eq(conversations.userId, effectiveUserId),
-          eq(conversations.language, language),
-          eq(conversations.context, scenario),
-          gt(conversations.updatedAt, new Date(Date.now() - SESSION_WINDOW_MS))
-        ),
-        orderBy: [desc(conversations.updatedAt)],
-      });
+      // Resume path: client passed a conversation id — append to that row
+      // regardless of how old it is (owned by this user only).
+      const recent = conversationId
+        ? await db.query.conversations.findFirst({
+            where: and(
+              eq(conversations.id, conversationId),
+              eq(conversations.userId, effectiveUserId)
+            ),
+          })
+        : await db.query.conversations.findFirst({
+            where: and(
+              eq(conversations.userId, effectiveUserId),
+              eq(conversations.language, language),
+              eq(conversations.context, scenario),
+              gt(conversations.updatedAt, new Date(Date.now() - SESSION_WINDOW_MS))
+            ),
+            orderBy: [desc(conversations.updatedAt)],
+          });
       if (recent) {
         const msgs = (recent.messages as unknown[]) ?? [];
         await db
           .update(conversations)
           .set({ messages: [...msgs, userTurn, assistantTurn], updatedAt: new Date() })
           .where(eq(conversations.id, recent.id));
+        persistedConversationId = recent.id;
       } else {
-        await db.insert(conversations).values({
-          userId: effectiveUserId,
-          language,
-          messages: [userTurn, assistantTurn],
-          context: scenario,
-        });
+        const inserted = await db
+          .insert(conversations)
+          .values({
+            userId: effectiveUserId,
+            language,
+            messages: [userTurn, assistantTurn],
+            context: scenario,
+          })
+          .returning({ id: conversations.id });
+        persistedConversationId = inserted[0]?.id;
       }
     } catch (e) {
       console.warn('conversation persist failed:', e);
@@ -250,6 +265,7 @@ export async function POST(request: Request) {
       slangCards: reply.slang,
       correction: reply.correction,
       offline,
+      conversationId: persistedConversationId,
     });
   } catch (error) {
     console.error('Chat POST error:', error);

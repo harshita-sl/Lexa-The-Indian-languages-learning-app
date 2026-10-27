@@ -1,18 +1,20 @@
 /**
- * Disk cache for synthesized speech — TTS calls are slow and metered, so a
+ * DB cache for synthesized speech — TTS calls are slow and metered, so a
  * repeated Listen click on the same text must replay bytes, not re-bill.
  *
- * Layout: .local/tts-cache/<sha256>.bin — key covers text + language + voice
- * + model so a config change invalidates naturally. Content-type is sniffed
- * from magic bytes on read. Oldest entries evicted past MAX_ENTRIES.
+ * Storage: tts_audio_cache table (Neon in prod, PGlite in local dev — either
+ * way it survives restarts and serverless deploys, unlike a disk cache).
+ * Key covers text + language + voice + model so a config change invalidates
+ * naturally. Audio stored base64; content-type is sniffed on read when the
+ * stored value is missing. Oldest entries evicted past MAX_ENTRIES.
  */
 
 import { createHash } from 'crypto';
-import { mkdir, readFile, writeFile, readdir, stat, unlink } from 'fs/promises';
-import path from 'path';
+import db from '@/db/drizzle';
+import { ttsAudioCache } from '@/db/schema';
+import { eq, inArray, asc } from 'drizzle-orm';
 
-const CACHE_DIR = path.join(process.cwd(), '.local', 'tts-cache');
-const MAX_ENTRIES = 400;
+const MAX_ENTRIES = 2000;
 
 function keyFor(text: string, language: string): string {
   const h = createHash('sha256');
@@ -42,8 +44,12 @@ export async function getCachedAudio(
   language: string
 ): Promise<CachedAudio | null> {
   try {
-    const buf = await readFile(path.join(CACHE_DIR, `${keyFor(text, language)}.bin`));
-    return { audio: buf, contentType: sniffContentType(buf) };
+    const row = await db.query.ttsAudioCache.findFirst({
+      where: eq(ttsAudioCache.keyHash, keyFor(text, language)),
+    });
+    if (!row) return null;
+    const audio = Buffer.from(row.audioB64, 'base64');
+    return { audio, contentType: row.contentType || sniffContentType(audio) };
   } catch {
     return null;
   }
@@ -52,14 +58,21 @@ export async function getCachedAudio(
 export async function setCachedAudio(
   text: string,
   language: string,
-  audio: ArrayBuffer
+  audio: ArrayBuffer,
+  contentType?: string
 ): Promise<void> {
   try {
-    await mkdir(CACHE_DIR, { recursive: true });
-    await writeFile(
-      path.join(CACHE_DIR, `${keyFor(text, language)}.bin`),
-      Buffer.from(audio)
-    );
+    const buf = Buffer.from(audio);
+    if (!buf.length) return;
+    await db
+      .insert(ttsAudioCache)
+      .values({
+        keyHash: keyFor(text, language),
+        language,
+        contentType: contentType || sniffContentType(buf),
+        audioB64: buf.toString('base64'),
+      })
+      .onConflictDoNothing({ target: ttsAudioCache.keyHash });
     void evictOldest();
   } catch {
     // cache write is best-effort — never block the response
@@ -68,17 +81,12 @@ export async function setCachedAudio(
 
 async function evictOldest(): Promise<void> {
   try {
-    const files = await readdir(CACHE_DIR);
-    if (files.length <= MAX_ENTRIES) return;
-    const aged = await Promise.all(
-      files.map(async (f) => ({
-        f,
-        mtime: (await stat(path.join(CACHE_DIR, f))).mtimeMs,
-      }))
-    );
-    aged.sort((a, b) => a.mtime - b.mtime);
-    for (const { f } of aged.slice(0, files.length - MAX_ENTRIES)) {
-      await unlink(path.join(CACHE_DIR, f)).catch(() => {});
-    }
+    const rows = await db
+      .select({ id: ttsAudioCache.id })
+      .from(ttsAudioCache)
+      .orderBy(asc(ttsAudioCache.createdAt));
+    if (rows.length <= MAX_ENTRIES) return;
+    const stale = rows.slice(0, rows.length - MAX_ENTRIES).map((r) => r.id);
+    await db.delete(ttsAudioCache).where(inArray(ttsAudioCache.id, stale));
   } catch {}
 }

@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     }
 
     const { audio, contentType } = await gnaniTTS(text, language);
-    void setCachedAudio(text, language, audio);
+    void setCachedAudio(text, language, audio, contentType);
     return new Response(audio, {
       headers: {
         'Content-Type': contentType,

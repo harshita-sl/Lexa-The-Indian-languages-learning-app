@@ -217,8 +217,9 @@ export function ChatCompanion({
   const [historyItems, setHistoryItems] = useState<
     { id: number; scenario: string; updatedAt: string; turns: number; preview: string; previewEnglish: string }[] | null
   >(null);
-  const [historyDetail, setHistoryDetail] = useState<{ id: number; messages: ChatMsg[] } | null>(null);
+  const [historyDetail, setHistoryDetail] = useState<{ id: number; scenario: string; messages: ChatMsg[] } | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
   const [speakerOn, setSpeakerOn] = useState(isTTSSupported());
   const [showTranslit, setShowTranslit] = useState(true);
   const [listening, setListening] = useState(false);
@@ -240,8 +241,20 @@ export function ChatCompanion({
     setOfflineMode(false);
     setHistoryOpen(false);
     setHistoryDetail(null);
+    setActiveConversationId(null);
     setScenario(id);
     setMessages([openerFor(langKey, id)]);
+  };
+
+  /** Load a past conversation into the live thread and keep it going. */
+  const resumeConversation = () => {
+    if (!historyDetail) return;
+    stopSpeaking();
+    setScenario(historyDetail.scenario);
+    setMessages(historyDetail.messages);
+    setActiveConversationId(historyDetail.id);
+    setHistoryDetail(null);
+    setHistoryOpen(false);
   };
 
   const openHistory = async () => {
@@ -261,7 +274,7 @@ export function ChatCompanion({
     try {
       const res = await fetch(`/api/ai/chat/history?id=${id}`);
       const data = await res.json();
-      if (data.messages) setHistoryDetail({ id, messages: data.messages });
+      if (data.messages) setHistoryDetail({ id, scenario: data.scenario ?? 'free', messages: data.messages });
     } catch {}
   };
 
@@ -358,10 +371,12 @@ export function ChatCompanion({
           message: msg,
           history: history.slice(-10),
           courseId,
+          ...(activeConversationId ? { conversationId: activeConversationId } : {}),
         }),
       });
       const data = await res.json();
       setOfflineMode(Boolean(data.offline));
+      if (data.conversationId) setActiveConversationId(data.conversationId);
       if (data.replyNative) {
         setMessages((m) => [
           ...m,
@@ -412,7 +427,7 @@ export function ChatCompanion({
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-220px)] min-h-[480px]">
+    <div className="flex flex-col h-[calc(100dvh-220px)] min-h-[480px]">
       {/* Scenario picker */}
       <div className="flex flex-wrap gap-2 mb-4">
         {SCENARIOS.map((s) => (
@@ -449,12 +464,20 @@ export function ChatCompanion({
         <div className="flex-1 overflow-y-auto space-y-3 pr-1 mb-4">
           {historyDetail ? (
             <>
-              <button
-                onClick={() => setHistoryDetail(null)}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" /> Back to conversations
-              </button>
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  onClick={() => setHistoryDetail(null)}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" /> Back to conversations
+                </button>
+                <button
+                  onClick={resumeConversation}
+                  className="inline-flex items-center gap-1.5 rounded-full border-2 border-indigo-300 bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition-colors"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" /> Continue this conversation
+                </button>
+              </div>
               {historyDetail.messages.map(bubble)}
             </>
           ) : historyItems === null ? (

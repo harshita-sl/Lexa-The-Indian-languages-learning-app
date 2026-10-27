@@ -181,7 +181,7 @@ export function AITutorModal({
       }}
     >
       <div 
-        className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl shadow-2xl w-full max-w-lg h-[650px] flex flex-col overflow-hidden relative z-[100000]"
+        className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl shadow-2xl w-full max-w-lg h-[650px] max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden relative z-[100000]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
