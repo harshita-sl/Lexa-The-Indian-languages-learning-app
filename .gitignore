@@ -46,3 +46,7 @@ next-env.d.ts
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+# Readme files
+AI_INTEGRATION_PLAN.md
+IMPLEMENTATION_PLAN.md
